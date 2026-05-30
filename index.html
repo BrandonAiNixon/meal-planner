@@ -1989,7 +1989,7 @@ Respond ONLY with valid JSON, no markdown, no extra text:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apiKey,
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-5',
           max_tokens: 1000,
           messages: [{ role: 'user', content: prompt }]
         })
@@ -2005,7 +2005,7 @@ Respond ONLY with valid JSON, no markdown, no extra text:
           'anthropic-dangerous-request-source': 'user-owned',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-4-5',
           max_tokens: 1000,
           messages: [{ role: 'user', content: prompt }]
         })
@@ -4292,9 +4292,45 @@ function migrateOldMealNames() {
   });
 }
 
+// ── SETUP BANNER ─────────────────────────────────────────────────────────────────
+function checkBannerVisibility() {
+  const key = localStorage.getItem('nixon_api_key') || '';
+  const proxy = localStorage.getItem('nixon_proxy_url') || '';
+  const banner = document.getElementById('setup-banner');
+  if (banner) banner.style.display = (!key || !proxy) ? 'block' : 'none';
+}
+
+function saveBannerApiKey() {
+  const val = (document.getElementById('banner-api-key').value || '').trim();
+  if (!val) return;
+  localStorage.setItem('nixon_api_key', val);
+  document.getElementById('banner-api-key').value = '';
+  document.getElementById('banner-status').textContent = '✅ API key saved';
+}
+
+function saveBannerProxy() {
+  const val = (document.getElementById('banner-proxy-url').value || '').trim();
+  if (!val) return;
+  localStorage.setItem('nixon_proxy_url', val);
+  document.getElementById('banner-proxy-url').value = '';
+  document.getElementById('banner-status').textContent = '✅ Proxy URL saved';
+}
+
+function checkBannerSetup() {
+  const key = localStorage.getItem('nixon_api_key') || '';
+  const proxy = localStorage.getItem('nixon_proxy_url') || '';
+  const status = document.getElementById('banner-status');
+  if (!key && !proxy) { status.textContent = '❌ Both API key and proxy URL are required'; return; }
+  if (!key) { status.textContent = '❌ API key is missing'; return; }
+  if (!proxy) { status.textContent = '❌ Proxy URL is missing'; return; }
+  document.getElementById('setup-banner').style.display = 'none';
+  status.textContent = '';
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 const _savedOk = loadState();
 migrateOldMealNames();
+checkBannerVisibility();
 renderBusyToggles();
 if (_savedOk && weekPlan.length > 0) {
   renderWeek();
