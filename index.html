@@ -1989,6 +1989,11 @@ Respond ONLY with valid JSON, no markdown, no extra text:
         messages: [{ role: 'user', content: prompt }]
       })
     });
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      const errMsg = errData.error?.message || response.statusText || response.status;
+      throw new Error('API error: ' + errMsg);
+    }
     const data = await response.json();
     const text = data.content.map(b => b.text || '').join('').trim();
     const clean = text.replace(/```json|```/g, '').trim();
