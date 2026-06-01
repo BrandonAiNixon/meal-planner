@@ -301,8 +301,10 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
   </div>
   <p class="shop-meta" id="shop-meta">North Woodlands Market · <span id="item-count">0</span> items</p>
 
-  <div class="add-item-row">
-    <input class="add-input" id="add-input" placeholder="Add item (e.g. Dairy - milk x2)" onkeydown="if(event.key==='Enter')addManualItem()">
+  <div class="add-item-row" style="flex-wrap:wrap;gap:6px;">
+    <input class="add-input" id="add-input" placeholder="Item name (e.g. Heavy cream)" onkeydown="if(event.key==='Enter')addManualItem()" style="flex:2;min-width:120px;">
+    <input class="add-input" id="add-qty" type="number" min="0" step="0.5" placeholder="Qty" style="flex:0.4;min-width:52px;max-width:64px;">
+    <input class="add-input" id="add-unit" placeholder="Unit" onkeydown="if(event.key==='Enter')addManualItem()" style="flex:0.6;min-width:60px;max-width:80px;">
     <button class="btn-add" onclick="addManualItem()">+ Add</button>
   </div>
 
@@ -328,7 +330,7 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
 
 <div style="margin-bottom:16px;">
   <p style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--blue);margin-bottom:8px;">Always in House</p>
-  <p style="font-size:13px;color:var(--text2);margin-bottom:10px;line-height:1.5;">Items you buy in bulk or always keep stocked. Never added to your shopping list unless marked Low.</p>
+  <p style="font-size:13px;color:var(--text2);margin-bottom:10px;line-height:1.5;">Items you always keep at home. Never added to your shopping list unless you mark them Low. Tap 🏠 on any shopping list item to add it here. Tap ✕ to remove it and return it to the regular shopping list.</p>
   <div class="add-item-row" style="margin-bottom:10px;">
     <input class="add-input" id="pantry-add-input" placeholder="Add item (e.g. Coconut water)" onkeydown="if(event.key==='Enter')addPantryStaple()">
     <button class="btn-add" onclick="addPantryStaple()">+ Add</button>
@@ -336,7 +338,7 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
   <div id="pantry-staples-list"></div>
 </div>
 
-<div class="pantry-grid" id="pantry-grid"></div>
+<div class="pantry-grid" id="pantry-grid" style="display:none;"></div>
 </div>
 
 <!-- WEEKLY REVIEW MODAL -->
@@ -503,6 +505,386 @@ const RECIPES = {
     ingredients: ['1 rack pork ribs','Salt and pepper','Aluminum foil','Your favorite BBQ sauce','2 cans pinto or baked beans','1 can Dr Pepper','Brown sugar, onion, bacon (optional for beans)'],
     steps: ['Preheat oven to 275°F.','Remove membrane from back of ribs.','Season both sides generously with salt and pepper.','Wrap tightly in aluminum foil.','Bake 2½–3 hours until tender.','Unwrap, baste with BBQ sauce, and broil 3–5 minutes until sauce caramelizes.','For beans: combine beans, Dr Pepper, and optional add-ins in a pot. Simmer 20–30 minutes.']
   },
+
+  'Turkey Club': {
+    serves: 6,
+    tier: 1,
+    ingredients: [
+      {qty:0.5, unit:'lb', name:'Oak Smoked Turkey and/or Ham'},
+      {qty:0.5, unit:'lb', name:'Oak Smoked Cheese'},
+      {qty:1, unit:'head', name:'Iceberg lettuce'},
+      {qty:1, unit:'whole', name:'Tomato'},
+      {qty:1, unit:'package', name:'Hickory Smoked Bacon'},
+      {qty:1, unit:'loaf', name:'White bread'},
+      {qty:null, unit:'', name:'Mayo'},
+    ],
+    steps: [
+      'Cook bacon until crispy. Set aside.',
+      'Lightly toast all bread slices.',
+      'Slice tomato thin.',
+      'Spread mayo on one side of all three slices of bread per sandwich.',
+      'On the bottom slice: layer lettuce, tomato, and bacon. Stack middle slice mayo-side down on top.',
+      'Spread mayo on the top side of the middle slice. Layer meat and two slices of cheese. Top with final slice of bread.',
+      'Cut diagonally and serve with chips or preferred side.',
+    ],
+    notes: 'Oak Smoked Turkey and/or Ham from HEB deli. Hickory Smoked Dry Cured Center Cut Bacon. 3 slices of bread per sandwich — very filling, most people only eat half.',
+  },
+
+  "Dave's Chicken": {
+    serves: 6,
+    tier: 1,
+    ingredients: [
+      {qty:1, unit:'package', name:'raw chicken tenders'},
+      {qty:1, unit:'bottle', name:"Dave's Famous Chicken Rub"},
+      {qty:1, unit:'bottle', name:'Salt Lick Garlic Rub'},
+      {qty:2, unit:'tbsp', name:'olive oil'},
+    ],
+    steps: [
+      'Preheat non-stick skillet with olive oil over medium-high heat.',
+      'Season one side of chicken tenders with both seasonings.',
+      'Place chicken seasoned-side down in the hot oil.',
+      'Season the other side of the chicken while it sits in the skillet.',
+      'Do not move the chicken — moving it will rip the crust off.',
+      'Cook 4–6 minutes until the crust is set and golden.',
+      'Flip and finish cooking until internal temperature reaches 165°F.',
+      'Remove from skillet and serve with your favorite side.',
+    ],
+    notes: "The key is patience — don't touch it after you put it down. The crust needs time to form before it will release from the pan.",
+  },
+
+  'Slider Burgers': {
+    serves: 6,
+    tier: 1,
+    ingredients: [
+      {qty:1, unit:'lb', name:'ground beef'},
+      {qty:1, unit:'package', name:'Hawaiian rolls'},
+      {qty:1, unit:'head', name:'iceberg lettuce'},
+      {qty:2, unit:'whole', name:'tomato'},
+      {qty:1, unit:'jar', name:'dill pickles'},
+      {qty:1, unit:'package', name:'Muenster or Havarti sliced cheese'},
+    ],
+    steps: [
+      'Season ground beef with steak seasoning and basil herb seasoning.',
+      'Form into patties 3½–4 inch diameter.',
+      'Cook to medium well, 150–155°F internal temp.',
+      'Make sauce: mix 1 cup mayo, 3 tbsp mustard, ½ cup ketchup, 2 tbsp dill relish. Adjust to taste.',
+      'Split Hawaiian roll and spread sauce on both halves.',
+      'Stack patty, cheese, lettuce, tomato, and pickle. Cap with top of roll.',
+      'Serve with chips.',
+    ],
+    notes: 'Steak seasoning and basil herb seasoning on the patties. The sauce is what makes these.',
+  },
+  'Hot Dogs': {
+    serves: 6,
+    tier: 2,
+    ingredients: [
+      {qty:1, unit:'package', name:'Ball Park Bun Size Uncured Beef Hot Dogs'},
+      {qty:1, unit:'package', name:'hot dog buns'},
+    ],
+    steps: [
+      'Heat griddle over medium heat.',
+      'Place hot dogs on griddle and roll every few minutes until browned on the outside.',
+      'Load into bun and add toppings of choice — mustard, ketchup, dill relish, grated cheese.',
+    ],
+    notes: 'Ball Park Bun Size Uncured Beef Hot Dogs. Keep rolling — even browning all around is the goal.',
+  },
+  'Tacos': {
+    serves: 6,
+    tier: 2,
+    ingredients: [
+      {qty:1, unit:'lb', name:'ground beef'},
+      {qty:1, unit:'packet', name:'taco seasoning'},
+      {qty:1, unit:'box', name:'hard taco shells'},
+    ],
+    steps: [
+      'Brown ground beef in skillet over medium-high heat. Drain excess fat.',
+      'Add taco seasoning and water per packet directions. Simmer until thickened.',
+      'Serve in hard taco shells with lettuce, tomato, shredded cheese, and sour cream.',
+    ],
+    notes: 'Sour cream, shredded cheese are pantry staples — always on hand.',
+  },
+  'Fajitas': {
+    serves: 6,
+    tier: 2,
+    ingredients: [
+      {qty:1, unit:'bag', name:'frozen pre-cooked chicken fajita meat'},
+      {qty:1, unit:'bag', name:'frozen pre-cooked beef fajita meat'},
+      {qty:1, unit:'whole', name:'yellow onion'},
+      {qty:1, unit:'whole', name:'bell pepper'},
+    ],
+    steps: [
+      'Heat fajita meat per package directions.',
+      'Slice onion and bell pepper into strips. Sauté in a hot skillet with a little oil until softened and lightly charred.',
+      'Warm flour tortillas.',
+      'Serve meat and vegetables in tortillas with cheese, sour cream, salsa, and guacamole.',
+    ],
+    notes: 'HEB frozen pre-cooked fajita meat. Fresh onion and bell pepper sautéed separately make a big difference.',
+  },
+  'Enchiladas': {
+    serves: 6,
+    tier: 1,
+    ingredients: [
+      {qty:1, unit:'package', name:'flour tortillas'},
+      {qty:3, unit:'cup', name:'Mexican cheese blend shredded'},
+      {qty:2, unit:'can', name:'mild red enchilada sauce'},
+      {qty:1, unit:'cup', name:'sour cream'},
+      {qty:1, unit:'whole', name:'green onion'},
+    ],
+    steps: [
+      'Preheat oven to 375°F.',
+      'Mix sour cream into one can of enchilada sauce. Spread a thin layer on the bottom of a baking dish.',
+      'Fill each tortilla with shredded cheese. Roll tightly and place seam-side down in the dish.',
+      'Pour remaining enchilada sauce over the top. Cover with remaining cheese.',
+      'Bake 20–25 minutes until cheese is melted and bubbly.',
+      'Garnish with sliced green onion. Serve with yellow rice.',
+    ],
+    notes: 'Cheese enchiladas — no meat. The sour cream mixed into the sauce is what makes them creamy.',
+  },
+  'Wings': {
+    serves: 6,
+    tier: 2,
+    ingredients: [
+      {qty:32, unit:'oz', name:'frozen bone-in wings fully cooked'},
+      {qty:1, unit:'bottle', name:'Buffalo Wild Wings Asian Zing sauce'},
+      {qty:1, unit:'bottle', name:'Buffalo Wild Wings Parmesan Garlic sauce'},
+    ],
+    steps: [
+      'Cook frozen wings per package directions.',
+      'Toss cooked wings in sauce of choice — Asian Zing or Parmesan Garlic.',
+      'Serve with ranch for dipping and chips and salsa on the side.',
+    ],
+    notes: 'Fully cooked frozen wings — just heat and sauce. No prep needed.',
+  },
+  'Steak': {
+    serves: 6,
+    tier: 1,
+    ingredients: [
+      {qty:null, unit:'', name:'ribeye steaks'},
+      {qty:2, unit:'tbsp', name:'olive oil'},
+      {qty:2, unit:'clove', name:'garlic'},
+      {qty:1, unit:'bunch', name:'fresh thyme'},
+      {qty:1, unit:'bunch', name:'fresh rosemary'},
+      {qty:1, unit:'stick', name:'butter'},
+    ],
+    steps: [
+      'Bring steaks to room temperature. Season generously with salt and pepper.',
+      'Heat a heavy skillet (cast iron preferred) over high heat until smoking.',
+      'Add olive oil. Place steaks in pan — do not move.',
+      'Add butter, crushed garlic cloves, thyme, and rosemary to the pan.',
+      'Baste steaks continuously with the herb butter using a spoon.',
+      'Cook 3–4 minutes per side for medium rare, or to desired doneness.',
+      'Rest 5 minutes before serving.',
+    ],
+    notes: 'Buy based on headcount and budget — ribeye or whatever HEB has that fits. Fresh herbs only for this one.',
+  },
+  'Chicken Wraps': {
+    serves: 6,
+    tier: 2,
+    ingredients: [
+      {qty:1, unit:'bag', name:'frozen fried chicken breasts or tenders'},
+      {qty:1, unit:'bag', name:'frozen waffle fries'},
+      {qty:1, unit:'package', name:'flour tortillas'},
+      {qty:1, unit:'head', name:'iceberg lettuce'},
+      {qty:1, unit:'bottle', name:'Chick-Fil-A Avocado Lime Ranch'},
+      {qty:1, unit:'cup', name:'Mexican cheese blend shredded'},
+    ],
+    steps: [
+      'Cook frozen chicken per package directions.',
+      'Cook frozen waffle fries per package directions.',
+      'Shred lettuce from iceberg head.',
+      'Warm tortillas.',
+      'Assemble wraps: lay chicken in tortilla, top with lettuce, cheese, and Avocado Lime Ranch. Roll and serve.',
+      'Serve waffle fries on the side.',
+    ],
+    notes: 'Fresh and frozen combo. Chick-Fil-A Avocado Lime Ranch from HEB produce cold section.',
+  },
+  'Spaghetti': {
+    serves: 6,
+    tier: 2,
+    ingredients: [
+      {qty:1, unit:'lb', name:'ground beef'},
+      {qty:16, unit:'oz', name:'spaghetti noodles'},
+      {qty:1, unit:'jar', name:'spaghetti sauce'},
+    ],
+    steps: [
+      'Brown ground beef in large skillet over medium-high heat. Drain fat.',
+      'Add jarred spaghetti sauce to beef. Simmer 10–15 minutes.',
+      'Cook spaghetti per package directions. Drain.',
+      'Serve sauce over noodles. Top with Parmesan cheese.',
+      'Serve with Caesar salad and garlic bread.',
+    ],
+  },
+  'Pizza': {
+    serves: 6,
+    tier: 2,
+    ingredients: [
+      {qty:2, unit:'box', name:'frozen cheese pizza'},
+    ],
+    steps: [
+      'Preheat oven per package directions.',
+      'Bake frozen pizzas per package directions.',
+      'Slice and serve.',
+    ],
+    notes: 'Saturday is always Pizza night.',
+  },
+  'Fajita Nachos': {
+    serves: 6,
+    tier: 2,
+    ingredients: [
+      {qty:1, unit:'bag', name:'tortilla chips'},
+      {qty:2, unit:'cup', name:'Mexican cheese blend shredded'},
+    ],
+    steps: [
+      'Use leftover fajita meat from the previous night.',
+      'Spread chips on a sheet pan. Top with leftover fajita meat and cheese.',
+      'Broil 3–5 minutes until cheese is melted and bubbly.',
+      'Top with sour cream, salsa, and jalapeños.',
+    ],
+    notes: 'Leftover meal — uses fajita protein from the night before.',
+  },
+  'Fajita Quesadillas': {
+    serves: 6,
+    tier: 2,
+    ingredients: [
+      {qty:1, unit:'package', name:'large flour tortillas'},
+      {qty:2, unit:'cup', name:'Mexican cheese blend shredded'},
+    ],
+    steps: [
+      'Use leftover fajita meat from the previous night.',
+      'Place tortilla in a hot skillet. Add cheese and leftover fajita meat to one half.',
+      'Fold tortilla over and cook 2–3 minutes per side until golden and crispy.',
+      'Cut into wedges. Serve with salsa and chips.',
+    ],
+    notes: 'Leftover meal — uses fajita protein from the night before.',
+  },
+  'Tomato Basil Soup & Grilled Cheese': {
+    serves: 6,
+    tier: 2,
+    ingredients: [
+      {qty:2, unit:'can', name:'tomato basil soup'},
+      {qty:1, unit:'loaf', name:'white bread'},
+      {qty:4, unit:'tbsp', name:'butter'},
+      {qty:1, unit:'package', name:'sliced cheese'},
+    ],
+    steps: [
+      'Heat tomato basil soup per can directions.',
+      'Butter one side of each bread slice.',
+      'Place bread butter-side down in a skillet over medium heat. Add cheese slices.',
+      'Top with second slice butter-side up. Cook 2–3 minutes until golden.',
+      'Flip and cook other side until golden and cheese is melted.',
+      'Serve grilled cheese alongside a bowl of tomato basil soup.',
+    ],
+  },
+  'Frozen Lasagna': {
+    serves: 6,
+    tier: 2,
+    ingredients: [
+      {qty:2, unit:'box', name:'frozen lasagna'},
+    ],
+    steps: [
+      'Preheat oven per package directions.',
+      'Bake frozen lasagna per package directions.',
+      'Let rest 5 minutes before cutting.',
+      'Serve with Caesar salad and green beans.',
+    ],
+  },
+  'Egg Rolls & Pot Stickers': {
+    serves: 6,
+    tier: 2,
+    ingredients: [
+      {qty:1, unit:'box', name:'frozen egg rolls'},
+      {qty:1, unit:'bag', name:'frozen pot stickers'},
+      {qty:1, unit:'bag', name:'frozen BBQ pork fried rice'},
+    ],
+    steps: [
+      'Cook egg rolls per package directions.',
+      'Cook pot stickers per package directions — pan fry with a splash of water for the steam-fry method.',
+      'Cook BBQ pork fried rice per package directions.',
+      'Serve with soy sauce and sesame oil on the side.',
+    ],
+  },
+  'Sweet & Sour Chicken': {
+    serves: 6,
+    tier: 2,
+    ingredients: [
+      {qty:1, unit:'bag', name:'frozen sweet and sour chicken'},
+      {qty:1, unit:'bag', name:'frozen BBQ pork fried rice'},
+      {qty:1, unit:'box', name:'chow mein noodles'},
+    ],
+    steps: [
+      'Cook sweet and sour chicken per package directions.',
+      'Cook BBQ pork fried rice per package directions.',
+      'Prepare chow mein noodles per package directions.',
+      'Serve all three together family style.',
+    ],
+  },
+
+  'Chicken Sausage Gumbo': {
+    serves: 6,
+    tier: 1,
+    ingredients: [
+      {qty:2, unit:'package', name:'Eckrich Farms sausage links'},
+      {qty:1, unit:'package', name:'raw chicken tenders'},
+      {qty:1, unit:'whole', name:'yellow onion'},
+      {qty:1, unit:'whole', name:'green bell pepper'},
+      {qty:1, unit:'stick', name:'butter'},
+      {qty:6, unit:'tbsp', name:'flour'},
+      {qty:32, unit:'oz', name:'chicken broth'},
+      {qty:1, unit:'cube', name:'chicken bouillon cube'},
+      {qty:2, unit:'cup', name:'long grain rice'},
+      {qty:1, unit:'tbsp', name:'bacon grease'},
+    ],
+    steps: [
+      'Instructions coming soon — add via recipe admin form.',
+    ],
+    notes: 'Slow cook meal. Bacon grease optional but adds depth.',
+  },
+  'Chicken Spaghetti': {
+    serves: 6,
+    tier: 1,
+    ingredients: [
+      {qty:2, unit:'lb', name:'chicken breast'},
+      {qty:1, unit:'can', name:'cream of mushroom soup'},
+      {qty:1, unit:'block', name:'Velveeta cheese'},
+      {qty:1, unit:'box', name:'spaghetti noodles'},
+      {qty:1, unit:'can', name:'Rotel tomatoes mild'},
+    ],
+    steps: [
+      'Instructions coming soon — add via recipe admin form.',
+    ],
+  },
+  'Chicken Fried Steak': {
+    serves: 6,
+    tier: 2,
+    ingredients: [
+      {qty:1, unit:'box', name:'frozen chicken fried steak'},
+      {qty:5, unit:'lb', name:'potatoes'},
+      {qty:1, unit:'block', name:'cream cheese'},
+      {qty:1, unit:'stick', name:'butter'},
+      {qty:0.5, unit:'cup', name:'milk'},
+    ],
+    steps: [
+      'Bake frozen chicken fried steak per package directions.',
+      'Wash, peel, and cube potatoes. Boil 20 minutes until fork tender.',
+      'Drain and mix in cream cheese, butter, milk, garlic powder, and salt until smooth.',
+      'Serve chicken fried steak over or alongside mashed potatoes.',
+    ],
+    notes: "Nikki's mashed potato recipe — cream cheese is the secret.",
+  },
+  'Brisket': {
+    serves: 6,
+    tier: 1,
+    ingredients: [
+      {qty:4, unit:'lb', name:'brisket or chuck roast'},
+      {qty:2, unit:'cup', name:'chicken broth'},
+      {qty:1, unit:'whole', name:'yellow onion'},
+      {qty:4, unit:'clove', name:'garlic'},
+    ],
+    steps: [
+      'Instructions coming soon — add via recipe admin form.',
+    ],
+    notes: 'Slow cook meal. Season with BBQ rub. Serve with HEB deli potato salad and macaroni salad.',
+  },
 };
 
 const SHAKE_PAIRINGS = {
@@ -516,7 +898,7 @@ const SHAKE_PAIRINGS = {
       {qty:1,unit:'cup',name:'coconut water'},
       {qty:1,unit:'cup',name:'frozen watermelon chunks'},
       {qty:4,unit:'leaf',name:'fresh mint'},
-      {qty:1,unit:'tbsp',name:'lime juice'},
+      {qty:1,unit:'tbsp',name:'fresh lime juice'},
       {qty:1,unit:'pinch',name:'sea salt'},
     ],
     steps: ['Add all ingredients to blender.','Blend until smooth.','Serve immediately alongside the meal.'],
@@ -533,12 +915,14 @@ const SHAKE_PAIRINGS = {
       {qty:1,unit:'cup',name:'almond milk'},
       {qty:1,unit:'cup',name:'frozen mixed berries'},
       {qty:3,unit:'leaf',name:'fresh basil'},
-      {qty:1,unit:'tbsp',name:'lemon juice'},
+      {qty:1,unit:'tbsp',name:'fresh lemon juice'},
       {qty:1,unit:'tsp',name:'honey'},
     ],
     steps: ['Pour almond milk into blender first.','Add remaining ingredients.','Blend on high 45-60 seconds until smooth.','Taste and adjust. Serve alongside the meal.'],
     notes: 'Did the basil feel natural or odd? Was the berry profile the right weight against the casserole richness?',
-  },
+  
+    tastingNotes: 'Went very well with the flavors of the meal. Berry acidity and basil bridge worked.',
+    whatToNote: 'Does the basil feel natural? Was the berry profile right against the casserole richness?',},
   'Chicken Wraps': {
     name: 'Citrus Coconut Protein Shake',
     strategy: 'complement',
@@ -549,12 +933,14 @@ const SHAKE_PAIRINGS = {
       {qty:0.5,unit:'cup',name:'light coconut milk'},
       {qty:0.5,unit:'cup',name:'coconut water'},
       {qty:0.75,unit:'cup',name:'frozen mango chunks'},
-      {qty:1,unit:'tbsp',name:'lime juice'},
+      {qty:1,unit:'tbsp',name:'fresh lime juice'},
       {qty:1,unit:'pinch',name:'sea salt'},
     ],
     steps: ['Pour coconut milk and coconut water into blender first.','Add protein powder, mango, lime juice, and sea salt.','Blend 45-60 seconds until smooth and creamy.','Taste and adjust. Serve immediately alongside the meal.'],
     notes: 'Use 1 scoop if on track, 2 scoops if dinner is last protein window.',
-  },
+  
+    tastingNotes: 'Very good with the saltiness of the meal. Citrus and coconut cut through fried chicken well.',
+    whatToNote: 'Does the lime and coconut complement the avocado ranch?',},
   'Turkey Club': {
     name: 'Cherry Peach Mint Protein Shake',
     strategy: 'contrast',
@@ -565,14 +951,16 @@ const SHAKE_PAIRINGS = {
       {qty:1,unit:'cup',name:'coconut water'},
       {qty:0.8,unit:'cup',name:'frozen dark sweet cherries'},
       {qty:0.3,unit:'cup',name:'frozen peach slices'},
-      {qty:1,unit:'tbsp',name:'lemon juice'},
+      {qty:1,unit:'tbsp',name:'fresh lemon juice'},
       {qty:3,unit:'leaf',name:'fresh mint'},
       {qty:1,unit:'tsp',name:'honey'},
       {qty:1,unit:'pinch',name:'sea salt'},
     ],
     steps: ['Pour coconut water into blender first.','Add all remaining ingredients.','Blend 45-60 seconds until smooth.','Taste and adjust. Serve cold alongside the meal.'],
     notes: 'Cherry and smoke is a classic flavor relationship. Does the cherry feel like it belongs with the smoked meat?',
-  },
+  
+    tastingNotes: 'Fresh taste that was very good with the meal. Cherry and smoke pairing confirmed.',
+    whatToNote: 'Does the cherry feel like it belongs with the smoked meat?',},
   'Slider Burgers': {
     name: 'Peach Ginger Protein Shake',
     strategy: 'contrast',
@@ -583,13 +971,15 @@ const SHAKE_PAIRINGS = {
       {qty:1,unit:'cup',name:'coconut water'},
       {qty:0.8,unit:'cup',name:'frozen peach slices'},
       {qty:0.5,unit:'tsp',name:'fresh ginger grated'},
-      {qty:1,unit:'tbsp',name:'lemon juice'},
+      {qty:1,unit:'tbsp',name:'fresh lemon juice'},
       {qty:0.5,unit:'cup',name:'frozen cucumber chunks'},
       {qty:1,unit:'tsp',name:'honey'},
     ],
     steps: ['Pour coconut water into blender first.','Add all remaining ingredients.','Blend 45-60 seconds until smooth.','Taste and adjust. Serve cold alongside the meal.'],
     notes: 'Did the ginger feel right? Did cucumber read as refreshing or odd in a shake?',
-  },
+  
+    tastingNotes: 'Ginger was a little strong but worked. Reduce to 0.25 tsp next time.',
+    whatToNote: 'Try 0.25 tsp ginger — does it feel more balanced? Did cucumber read as refreshing?',},
   'Easy Skillet Chicken Thighs': {
     name: 'Pineapple Lemon Thyme Protein Shake',
     strategy: 'complement',
@@ -599,16 +989,18 @@ const SHAKE_PAIRINGS = {
       {qty:2,unit:'scoop',name:'vanilla protein powder'},
       {qty:1,unit:'cup',name:'coconut water'},
       {qty:0.8,unit:'cup',name:'frozen pineapple chunks'},
-      {qty:1.5,unit:'tbsp',name:'lemon juice'},
+      {qty:1.5,unit:'tbsp',name:'fresh lemon juice'},
       {qty:0.5,unit:'tsp',name:'fresh lemon zest'},
-      {qty:3,unit:'sprig',name:'fresh thyme leaves'},
+      {qty:3,unit:'sprig',name:'fresh thyme'},
       {qty:3,unit:'leaf',name:'fresh mint'},
       {qty:1,unit:'tsp',name:'honey'},
       {qty:1,unit:'pinch',name:'sea salt'},
     ],
     steps: ['Pour coconut water into blender first.','Add all remaining ingredients.','Blend 45-60 seconds until smooth.','Reduce thyme if too herby, add lemon if needs brightness. Serve cold.'],
     notes: 'Most sophisticated pairing yet. Did the thyme bridge feel natural in a drink?',
-  },
+  
+    tastingNotes: 'Amazing. Set off all flavors and refreshed the palate between bites. Best pairing so far.',
+    whatToNote: 'Is this still the benchmark? Compare against any new pairings this week.',},
   'Cheese Tortellini': {
     name: 'Strawberry Lemon Basil Protein Shake',
     strategy: 'contrast',
@@ -619,25 +1011,27 @@ const SHAKE_PAIRINGS = {
       {qty:1,unit:'cup',name:'coconut water'},
       {qty:1,unit:'cup',name:'frozen strawberries'},
       {qty:3,unit:'leaf',name:'fresh basil'},
-      {qty:1.5,unit:'tbsp',name:'lemon juice'},
+      {qty:1.5,unit:'tbsp',name:'fresh lemon juice'},
       {qty:0.5,unit:'tsp',name:'fresh lemon zest'},
       {qty:1,unit:'tsp',name:'honey'},
     ],
     steps: ['Pour coconut water into blender first.','Add all remaining ingredients.','Blend 45-60 seconds until smooth.','Add lemon for brightness, reduce basil to 2 leaves if too prominent. Serve cold.'],
     notes: 'Do not skip the lemon zest. It is what makes this pairing work against a butter-heavy meal.',
-  },
+  
+    tastingNotes: 'The basil was what made the tie. Went very well with the flavors. Basil bridge confirmed.',
+    whatToNote: 'Does basil feel more natural here than Berry Basil? Note if lemon zest feels bright enough.',},
   "Dave's Chicken": {
     name: 'Tropical Mint Protein Shake',
     strategy: 'contrast',
     rationale: 'Tropical brightness naturally cuts bold smoky rubs. Mango and pineapple handle smokiness and cheese richness. Mint keeps it refreshing. Lime bridges Caesar tanginess.',
-    rating: 'hit',
+    rating: 'testing',
     ingredients: [
       {qty:2,unit:'scoop',name:'vanilla protein powder'},
       {qty:1,unit:'cup',name:'coconut water'},
       {qty:0.5,unit:'cup',name:'frozen mango chunks'},
       {qty:0.5,unit:'cup',name:'frozen pineapple chunks'},
       {qty:4,unit:'leaf',name:'fresh mint'},
-      {qty:1,unit:'tbsp',name:'lime juice'},
+      {qty:1,unit:'tbsp',name:'fresh lime juice'},
       {qty:0.3,unit:'tsp',name:'fresh ginger grated'},
       {qty:1,unit:'pinch',name:'sea salt'},
     ],
@@ -648,7 +1042,7 @@ const SHAKE_PAIRINGS = {
 };
 
 const PANTRY_ITEMS = [
-  'Olive oil','Vegetable oil','Butter','Salt','Black pepper','Garlic','Onions',
+  'Olive oil','Vegetable oil','Butter','Black pepper','Garlic','Onions',
   'Soy sauce','Taco seasoning','Ranch mix','Chicken broth','Beef broth',
   'Brown sugar','Flour','Cornstarch','Paprika','Cumin','Cajun seasoning',
   'Dried basil','Red pepper flakes','Garlic powder','Onion powder',
@@ -746,7 +1140,7 @@ const SIDE_RECIPES = {
       {qty:0.5, unit:'cup', name:'mayonnaise'},
       {qty:0.25, unit:'cup', name:'sour cream'},
       {qty:3, unit:'tbsp', name:'milk'},
-      {qty:1, unit:'tbsp', name:'lemon juice'},
+      {qty:1, unit:'tbsp', name:'fresh lemon juice'},
       {qty:1, unit:'clove', name:'garlic'},
       {qty:1, unit:'pinch', name:'salt'},
       {qty:1, unit:'pinch', name:'black pepper'},
@@ -886,7 +1280,6 @@ const DEFAULT_STORE_SECTIONS = [
   { id:'s16', name:'Frozen Aisle 16', type:'aisle', num:16 },
   { id:'unassigned', name:'Needs Aisle', type:'unassigned' },
   { id:'excluded', name:'Excluded', type:'excluded' },
-  { id:'pantrystaple', name:'Pantry Staple', type:'pantrystaple' },
 ];
 
 // Snapshot defaults for reset
@@ -1069,9 +1462,9 @@ let itemAisleMap = {
   'Rotel tomatoes can': 'Aisle 14',
   'Salad dressing': 'Aisle 5',
   'Salsa jar': 'Aisle 5',
-  'Salt': 'Aisle 5',
+  'Salt': 'Aisle 8',
   'Sausage links x2': 'Meat Market',
-  'Sea salt': 'Aisle 5',
+  'Sea salt': 'Aisle 8',
   'Sesame oil': 'Aisle 6',
   'Shallot': 'Produce',
   'Sharp cheddar cheese': 'Dairy',
@@ -1155,8 +1548,8 @@ const SHAKE_AISLE_MAP = {
   '1 tbsp fresh lemon juice': 'Produce',
   '4 fresh mint leaves': 'Produce',
   // Pantry
-  '1 pinch sea salt': 'Aisle 5',
-  'pinch of salt': 'Aisle 5',
+  '1 pinch sea salt': 'Aisle 8',
+  'pinch of salt': 'Aisle 8',
   '1 tsp honey': 'Aisle 8',
   '1 tbsp HEB honey': 'Aisle 8',
   '½ tsp ground cinnamon': 'Aisle 5',
@@ -1255,6 +1648,7 @@ function saveState() {
       busyDays: [...busyDays],
       shoppingItems,
       pantryState,
+    pantryStaples: [...pantryStaples],
       sugIndex,
       mealHistory,
       shakePairings: SHAKE_PAIRINGS,
@@ -1282,6 +1676,18 @@ function loadState() {
     if (data.busyDays) busyDays = new Set(data.busyDays);
     if (data.shoppingItems) shoppingItems = data.shoppingItems;
     if (data.pantryState) pantryState = data.pantryState;
+    if (data.pantryStaples) {
+      // Merge saved staples with defaults — union of both
+      data.pantryStaples.forEach(s => pantryStaples.add(s));
+    }
+    // Migrate: any items with aisle 'Pantry Staple' move to pantryStaples Set
+    // and get their aisle removed so they can be properly assigned
+    Object.entries(itemAisleMap).forEach(([k, v]) => {
+      if (v === 'Pantry Staple') {
+        pantryStaples.add(k);
+        delete itemAisleMap[k]; // remove fake aisle
+      }
+    });
     if (data.sugIndex) sugIndex = data.sugIndex;
     if (data.mealHistory) mealHistory = data.mealHistory;
     if (data.shakePairings) {
@@ -1307,7 +1713,6 @@ function loadState() {
       const specialSections = [
         { id:'unassigned', name:'Needs Aisle', type:'unassigned' },
         { id:'excluded', name:'Excluded', type:'excluded' },
-        { id:'pantrystaple', name:'Pantry Staple', type:'pantrystaple' },
       ];
       specialSections.forEach(sp => {
         if (!storeSections.find(s => s.id === sp.id)) storeSections.push(sp);
@@ -1319,7 +1724,25 @@ function loadState() {
   } catch(e) { console.warn('Load failed', e); return false; }
 }
 let shoppingItems = [];
-let pantryState = {};
+let pantryState = {}; // item -> 'stocked'|'low'|'unknown'
+let pantryStaples = new Set([
+  // Dairy
+  'Butter', 'Milk', 'Almond milk',
+  // Cereals
+  'Fruity Pebbles', 'Cheerios', 'Lucky Charms',
+  // Dried seasonings only — fresh herbs always go on the shopping list
+  'Salt', 'Black pepper', 'Garlic powder', 'Onion powder', 'Paprika',
+  'Cumin', 'Cajun seasoning', 'Dried basil', 'Red pepper flakes',
+  'Chili powder', 'Italian seasoning', 'Ground cinnamon', 'Ground ginger',
+  'Bay leaf', 'Dried thyme', 'Dried oregano', 'Dried rosemary',
+  'Steak seasoning', 'Basil herb seasoning', 'BBQ rub',
+  // Cooking staples
+  'Olive oil', 'Vegetable oil', 'Flour', 'Cornstarch', 'Brown sugar',
+  'Pam cooking spray', 'Bacon grease', 'Worcestershire sauce',
+  // Condiments
+  'Mayo', 'Ketchup', 'Mustard', 'Dill relish', 'Soy sauce',
+  'Ranch dressing', 'Hot sauce',
+]); // items always kept at home — independent of aisle
 let completedItems = [];
 let usedMealIndices = [];
 let swapDayIndex = -1;
@@ -1329,14 +1752,9 @@ let completedOpen = false;
 function cycleStaple(item) {
   const current = pantryState[item] || 'unknown';
   pantryState[item] = current === 'unknown' ? 'stocked' : current === 'stocked' ? 'low' : 'unknown';
-  if (pantryState[item] === 'low') {
-    // Add to shopping list
-    if (!shoppingItems.find(i => i.name === item)) {
-      shoppingItems.push({ name: item + ' (restock)', section: itemSection(item), checked: false, source: 'pantry' });
-      renderShoppingList();
-    }
-  }
   saveState();
+  // Rebuild shopping list — it will automatically include low pantry staples
+  buildShoppingList();
   renderPantry();
 }
 
@@ -1625,7 +2043,7 @@ function renderWeek() {
       </div>
       <div class="day-actions">
         <button class="btn-icon" title="Shake pairing" onclick="openShake(${day.mealIndex})">${hasShake ? shakeRating || '🥤' : '🥤'}</button>
-        ${RECIPES[meal.name] ? `<button class="btn-icon" title="View recipe" onclick="openRecipe(${day.mealIndex})">📖</button>` : ''}
+        ${(RECIPES[meal.name] || STRUCTURED_MEALS[meal.name]) ? `<button class="btn-icon" title="View recipe" onclick="openRecipe(${day.mealIndex})">📖</button>` : ''}
         <button class="btn-icon" title="Swap meal" onclick="openSwap(${wi})">⇄</button>
       </div>
     </div>`;
@@ -1838,6 +2256,18 @@ function renderShakeCard(shake, el, isSession) {
   shake.steps.forEach((step, i) => {
     html += `<div class="step-item"><div class="step-num">${i+1}</div><span>${step}</span></div>`;
   });
+  if (shake.whatToNote) {
+    html += `<div style="margin-top:12px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border-left:3px solid var(--amber);">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--amber);margin-bottom:4px;">What to note after the meal</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.5;">${shake.whatToNote}</div>
+    </div>`;
+  }
+  if (shake.tastingNotes) {
+    html += `<div style="margin-top:8px;padding:8px 12px;background:var(--accent2-light);border-radius:var(--radius-sm);">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--accent2);margin-bottom:4px;">Previous tasting notes</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.5;">${shake.tastingNotes}</div>
+    </div>`;
+  }
   html += '</div></div>';
   el.innerHTML = html;
 }
@@ -1933,7 +2363,19 @@ async function generateShake(mealIndex, strategy) {
     ? 'Choose the BEST strategy (complement or contrast) for this specific meal. Explain your reasoning in the rationale.'
     : `Use the ${strategy.toUpperCase()} strategy. Create a DIFFERENT shake than any already tried — use different hero ingredients and flavor profile.`;
 
-  const prompt = `You are a protein shake pairing expert for a triathlon athlete. Create ONE protein shake to serve ALONGSIDE (not before or after) "${meal.name}" with sides: ${(meal.sides||[]).join(', ')||'none'}.
+  // Get actual sides for this meal — check if day has custom sides
+  const dayEntry = weekPlan.find(d => !d.isSunday && d.mealIndex === mealIndex);
+  const actualSides = (dayEntry && dayEntry.customSides) ? dayEntry.customSides : (meal.sides || []);
+  const mealContext = [
+    meal.name,
+    actualSides.length > 0 ? 'with sides: ' + actualSides.join(', ') : '',
+    meal.mainNote ? '(' + meal.mainNote + ')' : '',
+    meal.prep === 'S' ? '(slow cooked)' : meal.prep === 'Q' ? '(quick meal)' : '',
+  ].filter(Boolean).join(' ');
+
+  const shakeContext = buildShakePromptContext();
+
+  const prompt = `You are a protein shake pairing expert for a triathlon athlete. Create ONE protein shake to serve ALONGSIDE (not before or after) "${mealContext}".
 
 RULES:
 - Serve alongside the meal, not as dessert or after
@@ -1944,8 +2386,7 @@ STRATEGY: ${strategyInstruction}
 Complement = mirror/enhance the meal's flavors
 Contrast = cut through richness, cleanse the palate
 
-${existingHits ? 'PROVEN HITS — reference these flavor profiles:\n' + existingHits : ''}
-${existingMisses ? 'AVOID — these missed:\n' + existingMisses : ''}
+${shakeContext}
 ${triedInSession ? 'ALREADY SHOWN THIS SESSION — use DIFFERENT core ingredients:\n' + triedInSession : ''}
 
 STRICT INGREDIENT FORMAT — you MUST follow this exactly:
@@ -1968,7 +2409,8 @@ Respond ONLY with valid JSON, no markdown, no extra text:
     { "qty": 1, "unit": "cup", "name": "whole milk" },
     { "qty": 0.5, "unit": "cup", "name": "frozen mango chunks" }
   ],
-  "steps": ["Step 1", "Step 2", "Step 3"]
+  "steps": ["Step 1", "Step 2", "Step 3"],
+  "whatToNote": "One specific thing to observe after the meal to refine this pairing strategy"
 }`;
 
   try {
@@ -2102,12 +2544,21 @@ function renderRecipeContent() {
   const recipe = RECIPES[meal.name];
   const contentEl = document.getElementById('recipe-content');
 
-  if (!recipe) {
+  // Fall back to STRUCTURED_MEALS if no RECIPES entry
+  const structured = STRUCTURED_MEALS[meal.name];
+  if (!recipe && !structured) {
     contentEl.innerHTML = '<div class="no-recipe">Recipe coming soon — you already know how to make this one!</div>';
     return;
   }
+  // Build effective recipe — use RECIPES if available, else build from STRUCTURED_MEALS
+  const effectiveRecipe = recipe || {
+    serves: 6,
+    ingredients: (structured.ingredients || []).filter(i => i.type !== 'staple'),
+    steps: structured.mainNote ? [structured.mainNote] : [],
+    notes: null,
+  };
 
-  const ratio = activeServingsNeeded / recipe.serves;
+  const ratio = activeServingsNeeded / (effectiveRecipe.serves || 6);
 
   function scaleQty(text) {
     // Match leading number/fraction like "1", "1.5", "1/2", "2½"
@@ -2137,13 +2588,35 @@ function renderRecipeContent() {
   }
 
   let html = '<div class="recipe-section"><h3>Ingredients</h3>';
-  recipe.ingredients.forEach(ing => {
-    const scaled = ratio !== 1 ? scaleQty(ing) : ing;
-    const changed = scaled !== ing;
-    html += `<div class="ingredient-item"><div class="ingredient-dot"></div><span style="${changed ? 'color:var(--accent);font-weight:500' : ''}">${scaled}</span></div>`;
+  effectiveRecipe.ingredients.forEach(ing => {
+    let display, changed = false;
+    if (typeof ing === 'object' && ing.name) {
+      // Structured format {qty, unit, name}
+      const scaledQty = ing.qty != null ? ing.qty * ratio : null;
+      changed = ratio !== 1 && scaledQty != null;
+      let qtyStr = '';
+      if (scaledQty != null) {
+        // Format nicely
+        let q = scaledQty;
+        if (Math.abs(q - Math.round(q)) < 0.05) q = Math.round(q);
+        else if (Math.abs(q - 0.25) < 0.05) q = '¼';
+        else if (Math.abs(q - 0.5) < 0.05) q = '½';
+        else if (Math.abs(q - 0.75) < 0.05) q = '¾';
+        else if (Math.abs(q - 1.5) < 0.05) q = '1½';
+        else q = parseFloat(q.toFixed(1));
+        qtyStr = q + (ing.unit ? ' ' + ing.unit + ' ' : ' ');
+      }
+      display = qtyStr + ing.name;
+    } else {
+      // Legacy string format
+      const ingStr = String(ing);
+      display = ratio !== 1 ? scaleQty(ingStr) : ingStr;
+      changed = display !== ingStr;
+    }
+    html += '<div class="ingredient-item"><div class="ingredient-dot"></div><span style="' + (changed ? 'color:var(--accent);font-weight:500' : '') + '">' + display + '</span></div>';
   });
   html += '</div><div class="recipe-section"><h3>Instructions</h3>';
-  recipe.steps.forEach((step, i) => {
+  effectiveRecipe.steps.forEach((step, i) => {
     html += `<div class="step-item"><div class="step-num">${i+1}</div><span>${step}</span></div>`;
   });
   html += '</div>';
@@ -2271,7 +2744,7 @@ const STRUCTURED_MEALS = {
       { type:'simple', name:'Garlic', qty:3, unit:'clove', section:'Produce' },
       { type:'viewqty', name:'Chicken broth', qty:0.5, unit:'cup', section:'Aisle 14' },
       { type:'simple', name:'Fresh lemon', qty:1, unit:'whole', section:'Produce' },
-      { type:'simple', name:'Fresh thyme', qty:1, unit:'bunch', section:'Produce' },
+      { type:'simple', name:'fresh thyme', qty:1, unit:'bunch', section:'Produce' },
       { type:'staple', name:'Red pepper flakes' },
       { type:'viewqty', name:'Heavy cream', qty:0.33, unit:'cup', section:'Dairy' },
       { type:'simple', name:'Caesar salad kit', qty:1, unit:'package', section:'Produce' },
@@ -2367,7 +2840,7 @@ const STRUCTURED_MEALS = {
       { type:'simple', name:'Basil pesto', qty:0.25, unit:'cup', section:'Aisle 6' },
       { type:'staple', name:'Garlic powder' },
       { type:'simple', name:'Caesar salad kit', qty:1, unit:'package', section:'Produce' },
-      { type:'simple', name:'Fresh asparagus', qty:1, unit:'bundle', section:'Produce' },
+      { type:'simple', name:'fresh asparagus', qty:1, unit:'bundle', section:'Produce' },
     ]
   },
   'Garlic Sesame Chicken Noodles': {
@@ -2527,8 +3000,8 @@ const STRUCTURED_MEALS = {
       { type:'viewqty', name:'Ribeye steaks', qty:null, unit:'whole', section:'Meat Market', note:'buy based on headcount & budget' },
       { type:'staple', name:'Olive oil' },
       { type:'simple', name:'Garlic', qty:2, unit:'clove', section:'Produce' },
-      { type:'simple', name:'Fresh thyme', qty:1, unit:'bunch', section:'Produce' },
-      { type:'simple', name:'Fresh rosemary', qty:1, unit:'bunch', section:'Produce' },
+      { type:'simple', name:'fresh thyme', qty:1, unit:'bunch', section:'Produce' },
+      { type:'simple', name:'fresh rosemary', qty:1, unit:'bunch', section:'Produce' },
       { type:'viewqty', name:'Butter', qty:1, unit:'stick', section:'Dairy' },
       { type:'simple', name:'Caesar salad kit', qty:1, unit:'package', section:'Produce' },
       { type:'staple', name:'Salt' },
@@ -2788,6 +3261,25 @@ function buildShoppingList() {
     }
   });
 
+  // Add pantry staples marked Low — they need restocking
+  pantryStaples.forEach(staple => {
+    const status = pantryState[staple] || 'unknown';
+    if (status === 'low') {
+      const key = staple.toLowerCase().replace(/[^a-z]/g,'');
+      if (!added.has(key)) {
+        added.add(key);
+        const section = itemSection(staple);
+        shoppingItems.push({
+          name: staple,
+          qty: null, unit: '',
+          section: section !== 'Pantry Staple' ? section : 'Needs Aisle',
+          checked: false,
+          source: 'pantry',
+        });
+      }
+    }
+  });
+
   // Re-add preserved manual items
   manualItems.forEach(item => {
     item.section = itemSection(safeStr(item.name)); // re-resolve aisle
@@ -2837,23 +3329,37 @@ function renderShoppingList() {
 
   // Re-resolve sections and filter excluded items first
   shoppingItems.forEach(item => { item.name = safeStr(item.name); item.section = itemSection(item.name); });
-  // Filter excluded and pantry staples
-  const pantryKeys = getPantryStapleItems().map(s => s.toLowerCase().replace(/[^a-z]/g,''));
+  // Fresh herb/produce detection — these always go on the shopping list
+  // regardless of pantry staple status
+  const FRESH_SIGNALS = /\b(fresh|juice|zest|leaves|sprig|bunch|head|whole|clove)\b/i;
+  const DRIED_SIGNALS = /\b(dried|ground|powder|seasoning|mix|extract|flakes)\b/i;
+
+  // Filter excluded items; filter pantry staples unless marked Low or fresh
   shoppingItems = shoppingItems.filter(i => {
     if (i.section === 'Excluded') return false;
-    if (i.section === 'Pantry Staple') return false;
-    // Never filter manually added items — user added them intentionally
-    if (i.source === 'manual') return true;
-    // Fuzzy match against pantry staple keys — only if key is substantial (5+ chars)
-    // and is a near-complete match to avoid "rice" catching "rice vinegar"
-    const itemKey = safeStr(i.name).toLowerCase().replace(/[^a-z]/g,'');
-    const matchesPantry = pantryKeys.some(pk => {
-      if (pk.length < 5) return itemKey === pk; // short keys must be exact
-      return itemKey === pk || // exact match
-             (itemKey.includes(pk) && pk.length >= itemKey.length * 0.6) || // pk is most of item
-             (pk.includes(itemKey) && itemKey.length >= pk.length * 0.6);   // item is most of pk
+    if (i.source === 'manual') return true; // never filter manual items
+    const iName = safeStr(i.name);
+
+    // Fresh ingredients always go on the list — never pantry filtered
+    if (FRESH_SIGNALS.test(iName) && !DRIED_SIGNALS.test(iName)) return true;
+
+    // Check if item is in pantryStaples — exact match first, then case-insensitive
+    const isStaple = pantryStaples.has(iName) || [...pantryStaples].some(s => {
+      const sl = s.toLowerCase();
+      const nl = iName.toLowerCase();
+      // Must be exact or near-exact match — prevent "basil" matching "fresh basil leaves"
+      return nl === sl || nl === 'dried ' + sl || nl === 'ground ' + sl;
     });
-    return !matchesPantry;
+    if (!isStaple) return true;
+
+    // Pantry staple — only show on list if marked Low
+    const status = pantryState[iName] || 'unknown';
+    if (status === 'low') {
+      i.section = itemSection(iName);
+      if (i.section === 'Pantry Staple') i.section = 'Needs Aisle';
+      return true;
+    }
+    return false;
   });
 
   const filteredActive = shoppingItems.filter(i => !i.checked);
@@ -2917,6 +3423,38 @@ function renderShoppingList() {
         vBtn.onclick = (e) => { e.stopPropagation(); openViewQty(item); };
         el.appendChild(vBtn);
       }
+      // Qty +/- controls for manual items
+      if (item.source === 'manual') {
+        const qtyControls = document.createElement('div');
+        qtyControls.style.cssText = 'display:flex;align-items:center;gap:4px;';
+        const minusBtn = document.createElement('button');
+        minusBtn.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:4px;width:24px;height:24px;font-size:14px;line-height:1;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center;';
+        minusBtn.textContent = '−';
+        minusBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (item.qty != null && item.qty > 1) {
+            item.qty = parseFloat((item.qty - (item.qty % 1 === 0 ? 1 : 0.5)).toFixed(1));
+          } else if (item.qty === 1 || item.qty == null) {
+            item.qty = null;
+          }
+          saveState(); renderShoppingList();
+        };
+        const qtyDisplay = document.createElement('span');
+        qtyDisplay.style.cssText = 'font-size:13px;font-weight:500;min-width:20px;text-align:center;color:var(--text);';
+        qtyDisplay.textContent = item.qty != null ? item.qty + (item.unit ? ' ' + item.unit : '') : '—';
+        const plusBtn = document.createElement('button');
+        plusBtn.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:4px;width:24px;height:24px;font-size:14px;line-height:1;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center;';
+        plusBtn.textContent = '+';
+        plusBtn.onclick = (e) => {
+          e.stopPropagation();
+          item.qty = parseFloat(((item.qty || 0) + 1).toFixed(1));
+          saveState(); renderShoppingList();
+        };
+        qtyControls.appendChild(minusBtn);
+        qtyControls.appendChild(qtyDisplay);
+        qtyControls.appendChild(plusBtn);
+        el.appendChild(qtyControls);
+      }
       // Always show aisle edit button — especially important for Needs Aisle items
       const editBtn = document.createElement('button');
       editBtn.style.cssText = 'background:none;border:none;font-size:11px;color:' + (isUnknown ? 'var(--amber)' : 'var(--text3)') + ';cursor:pointer;padding:2px 4px;';
@@ -2924,6 +3462,28 @@ function renderShoppingList() {
       editBtn.textContent = isUnknown ? '📍' : '✏️';
       editBtn.onclick = (e) => { e.stopPropagation(); openAisleEdit(item.name); };
       el.appendChild(editBtn);
+      // 🏠 Pantry staple toggle — mark item as always in house
+      if (item.source !== 'manual') {
+        const isStaple = pantryStaples.has(item.name);
+        const homeBtn = document.createElement('button');
+        homeBtn.style.cssText = 'background:' + (isStaple ? 'var(--accent2-light)' : 'var(--surface2)') + ';border:1px solid ' + (isStaple ? 'var(--accent2)' : 'var(--border)') + ';border-radius:6px;font-size:11px;color:' + (isStaple ? 'var(--accent2)' : 'var(--text3)') + ';cursor:pointer;padding:3px 6px;white-space:nowrap;';
+        homeBtn.textContent = isStaple ? '🏠 In pantry' : '🏠';
+        homeBtn.title = isStaple ? 'Tap to remove from pantry — will appear on shopping list again' : 'Tap to mark as always in house — removes from shopping list';
+        homeBtn.textContent = '🏠';
+        homeBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (isStaple) {
+            pantryStaples.delete(item.name);
+          } else {
+            pantryStaples.add(item.name);
+            pantryState[item.name] = 'stocked';
+          }
+          saveState();
+          buildShoppingList();
+          renderPantry();
+        };
+        el.appendChild(homeBtn);
+      }
       // Source info button
       if (item.source) {
         const infoBtn = document.createElement('button');
@@ -2975,11 +3535,17 @@ function checkItem(idx) {
 
 function addManualItem() {
   const input = document.getElementById('add-input');
+  const qtyInput = document.getElementById('add-qty');
+  const unitInput = document.getElementById('add-unit');
   const val = input.value.trim();
   if (!val) return;
+  const qty = qtyInput && qtyInput.value ? parseFloat(qtyInput.value) : null;
+  const unit = unitInput && unitInput.value.trim() ? unitInput.value.trim() : '';
   const section = itemSection(val);
-  shoppingItems.push({ name: val, section, checked: false, source: 'manual' });
+  shoppingItems.push({ name: val, qty, unit, section, checked: false, source: 'manual' });
   input.value = '';
+  if (qtyInput) qtyInput.value = '';
+  if (unitInput) unitInput.value = '';
   renderShoppingList();
   saveState();
   // If unknown aisle, briefly highlight the needs-aisle banner
@@ -3001,15 +3567,9 @@ function addPantryStaple() {
   const input = document.getElementById('pantry-add-input');
   const val = input ? input.value.trim() : '';
   if (!val) return;
-  itemAisleMap[val] = 'Pantry Staple';
+  pantryStaples.add(val);
   pantryState[val] = 'stocked';
   input.value = '';
-  // Remove matching items from shopping list immediately
-  const stapleKey = val.toLowerCase().replace(/[^a-z]/g,'');
-  shoppingItems = shoppingItems.filter(i => {
-    const itemKey = safeStr(i.name).toLowerCase().replace(/[^a-z]/g,'');
-    return !itemKey.includes(stapleKey) && !stapleKey.includes(itemKey);
-  });
   saveState();
   renderPantryStaplesList();
   renderPantry();
@@ -3019,33 +3579,33 @@ function addPantryStaple() {
 function renderPantryStaplesList() {
   const container = document.getElementById('pantry-staples-list');
   if (!container) return;
-  const items = getPantryStapleItems();
+  const items = [...pantryStaples].sort();
   if (items.length === 0) {
-    container.innerHTML = '<p style="font-size:13px;color:var(--text3);padding:8px 0;">No items added yet</p>';
+    container.innerHTML = '<p style="font-size:13px;color:var(--text3);padding:8px 0;">No items added yet. Tap 🏠 on any shopping list item to add it here.</p>';
     return;
   }
   container.innerHTML = '';
-  items.sort().forEach(item => {
+  items.forEach(item => {
     const status = pantryState[item] || 'stocked';
+    const aisle = itemSection(item);
     const color = status === 'stocked' ? 'var(--accent2)' : status === 'low' ? 'var(--amber)' : 'var(--text3)';
-    const label = status === 'stocked' ? '✅ Stocked' : status === 'low' ? '⚠️ Low' : '? Check';
+    const label = status === 'stocked' ? '✅ Stocked' : status === 'low' ? '⚠️ Low — on list' : '? Check';
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border);';
-    row.innerHTML = `
-      <span style="font-size:13px;flex:1;">${item}</span>
-      <button onclick="cycleStaple('${item.replace(/'/g,"\'")}');renderPantryStaplesList();"
-        style="font-size:11px;color:${color};background:none;border:1px solid ${color};border-radius:20px;padding:3px 10px;cursor:pointer;margin-right:8px;">${label}</button>
-      <button onclick="removePantryStaple('${item.replace(/'/g,"\'")}',this.closest('div'))"
-        style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;">✕</button>`;
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:0.5px solid var(--border);';
+    const safeName = item.replace(/'/g,"\'");
+    const aisleLabel = aisle !== 'Needs Aisle' ? aisle : '📍 No aisle assigned';
+    row.innerHTML = '<div style="flex:1;"><div style="font-size:13px;">' + item + '</div><div style="font-size:11px;color:var(--text3);">' + aisleLabel + '</div></div>'
+      + '<button onclick="cycleStaple(\'' + safeName + '\');renderPantryStaplesList();" style="font-size:11px;color:' + color + ';background:none;border:1px solid ' + color + ';border-radius:20px;padding:3px 10px;cursor:pointer;white-space:nowrap;">' + label + '</button>'
+      + '<button onclick="pantryStaples.delete(\'' + safeName + '\');saveState();renderPantryStaplesList();buildShoppingList();" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;">✕</button>';
     container.appendChild(row);
   });
 }
 
 function removePantryStaple(item, row) {
-  delete itemAisleMap[item];
+  pantryStaples.delete(item);
   row.remove();
   saveState();
-  renderShoppingList();
+  buildShoppingList();
 }
 
 function migrateShakeIngredients(ingredients) {
@@ -3096,16 +3656,33 @@ function migrateShakeIngredients(ingredients) {
 }
 
 function getPantryStapleItems() {
-  // Items explicitly marked as Pantry Staple in aisle map
-  return Object.entries(itemAisleMap)
-    .filter(([,v]) => v === 'Pantry Staple')
-    .map(([k]) => k);
+  return [...pantryStaples];
 }
 
 function renderPantry() {
   renderPantryStaplesList();
-  // Show weekly staples used in this week's meal plan
-  const staples = window._weeklyStaples || [];
+  // Build weekly staples by cross-referencing ALL meal ingredients with pantryStaples
+  const recipeTaggedStaples = window._weeklyStaples || [];
+  const crossRefStaples = new Set(recipeTaggedStaples);
+  // Check every ingredient in this week's meals against pantryStaples
+  weekPlan.forEach(day => {
+    if (day.isSunday || day.mealIndex < 0) return;
+    const meal = MEALS[day.mealIndex];
+    const structured = STRUCTURED_MEALS[meal.name];
+    if (structured) {
+      (structured.ingredients || []).forEach(ing => {
+        const ingName = safeStr(typeof ing === 'object' ? ing.name : ing);
+        // Check if this ingredient matches any pantry staple
+        pantryStaples.forEach(staple => {
+          if (ingName.toLowerCase().includes(staple.toLowerCase()) ||
+              staple.toLowerCase().includes(ingName.toLowerCase())) {
+            crossRefStaples.add(staple);
+          }
+        });
+      });
+    }
+  });
+  const staples = [...crossRefStaples];
   const staplesSection = document.getElementById('weekly-staples-section');
   const staplesList = document.getElementById('weekly-staples-list');
   if (staplesSection && staplesList) {
@@ -3138,9 +3715,10 @@ function renderPantry() {
     staplesSection.style.display = 'none';
   }
   }
+  // Old PANTRY_ITEMS grid removed — items managed via Always in House section
   const grid = document.getElementById('pantry-grid');
-  grid.innerHTML = '';
-  PANTRY_ITEMS.forEach(item => {
+  if (grid) grid.style.display = 'none';
+  if (false) PANTRY_ITEMS.forEach(item => {
     const status = pantryState[item] || 'unknown';
     const el = document.createElement('div');
     el.className = 'pantry-item' + (status === 'stocked' ? ' stocked' : status === 'low' ? ' low' : '');
@@ -3908,26 +4486,10 @@ function openAisleEdit(itemName) {
     btn.textContent = sec.name;
     btn.onclick = () => {
       setItemAisle(editingItemName, sec.name);
-      // If assigned to Pantry Staple, auto-mark as stocked and remove from shopping list
-      if (sec.name === 'Pantry Staple') {
-        pantryState[editingItemName] = 'stocked';
-        // Remove any shopping list items that match this pantry staple
-        const stapleKey = editingItemName.toLowerCase().replace(/[^a-z]/g,'');
-        shoppingItems = shoppingItems.filter(i => {
-          const itemKey = safeStr(i.name).toLowerCase().replace(/[^a-z]/g,'');
-          return !itemKey.includes(stapleKey) && !stapleKey.includes(itemKey);
-        });
-      }
       saveState();
       closeModal('admin-aisle-modal');
       renderAdminItems();
-      // For pantry staple assignments, rebuild from scratch
-      // For aisle assignments, just re-render so manual items aren't lost
-      if (sec.name === 'Pantry Staple') {
-        buildShoppingList();
-      } else {
-        renderShoppingList();
-      }
+      renderShoppingList();
       renderPantryStaplesList();
       renderPantry();
     };
@@ -4033,13 +4595,14 @@ function openComposer(dayIdx) {
 function renderComposerMain() {
   const grid = document.getElementById('composer-main-grid');
   grid.innerHTML = '';
-  MEALS.filter(m => !m.isLeftover).forEach((m, i) => {
+  MEALS.forEach((m, realIdx) => {
+    if (m.isLeftover) return; // skip leftovers but keep real MEALS index
     const btn = document.createElement('button');
-    const isSelected = composerState.mainIdx === i;
-    btn.style.cssText = `padding:8px 10px;border-radius:8px;border:1px solid ${isSelected?'var(--accent)':'var(--border)'};background:${isSelected?'var(--accent-light)':'var(--surface2)'};font-family:inherit;font-size:12px;color:${isSelected?'var(--accent)':'var(--text)'};cursor:pointer;text-align:left;line-height:1.3;`;
-    btn.textContent = m.name;
+    const isSelected = composerState.mainIdx === realIdx;
+    btn.style.cssText = `width:100%;padding:12px 14px;border-radius:8px;border:1px solid ${isSelected?'var(--accent)':'var(--border)'};background:${isSelected?'var(--accent-light)':'var(--surface2)'};font-family:inherit;font-size:14px;color:${isSelected?'var(--accent)':'var(--text)'};cursor:pointer;text-align:left;line-height:1.3;min-height:44px;box-sizing:border-box;`;
+    const prepLabel = m.prep === 'Q' ? 'Quick' : m.prep === 'M' ? 'Medium' : 'Slow';
+    btn.innerHTML = '<div style="font-weight:500;">' + m.name + '</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">' + prepLabel + ' · ' + m.cost + '</div>';
     btn.onclick = () => {
-      const realIdx = MEALS.indexOf(m);
       composerState.mainIdx = realIdx;
       // Pre-populate default sides from the meal
       composerState.sides = new Set(m.sides || []);
@@ -4059,7 +4622,7 @@ function renderComposerSides() {
   ALL_SIDES.forEach(side => {
     const isSelected = composerState.sides.has(side);
     const btn = document.createElement('button');
-    btn.style.cssText = `padding:5px 10px;border-radius:20px;border:1px solid ${isSelected?'var(--accent2)':'var(--border)'};background:${isSelected?'var(--accent2-light)':'var(--surface2)'};font-family:inherit;font-size:12px;color:${isSelected?'var(--accent2)':'var(--text2)'};cursor:pointer;`;
+    btn.style.cssText = `padding:8px 14px;border-radius:20px;border:1px solid ${isSelected?'var(--accent2)':'var(--border)'};background:${isSelected?'var(--accent2-light)':'var(--surface2)'};font-family:inherit;font-size:13px;color:${isSelected?'var(--accent2)':'var(--text2)'};cursor:pointer;min-height:36px;`;
     const hasRecipe = SIDE_RECIPES[side] && SIDE_RECIPES[side].tier === 1;
     btn.innerHTML = side + (hasRecipe ? ' 📖' : '');
     btn.onclick = () => {
@@ -4292,6 +4855,78 @@ function migrateOldMealNames() {
   });
 }
 
+// ── SHAKE LEARNING SYSTEM ────────────────────────────────────────────────────────
+function buildShakeLearning() {
+  const hits = Object.entries(SHAKE_PAIRINGS).filter(([,v]) => v.rating === 'hit');
+  const misses = Object.entries(SHAKE_PAIRINGS).filter(([,v]) => v.rating === 'miss');
+
+  let patterns = [];
+  let confirmed = [];
+  let avoid = [];
+
+  // Extract confirmed strategies from hits with tasting notes
+  hits.forEach(([meal, shake]) => {
+    if (shake.tastingNotes) {
+      confirmed.push(`${shake.name} (${meal}): ${shake.tastingNotes}`);
+    }
+  });
+
+  // Extract patterns from tasting notes
+  const allNotes = hits.map(([,v]) => v.tastingNotes || '').join(' ').toLowerCase();
+
+  if (allNotes.includes('herb') || allNotes.includes('basil') || allNotes.includes('thyme')) {
+    patterns.push('Herb bridges (basil, thyme) have worked well — they connect the shake to the dish without overpowering');
+  }
+  if (allNotes.includes('refresh') || allNotes.includes('palate')) {
+    patterns.push('Contrast/refreshing lane consistently works — she responds best to shakes that cleanse the palate between bites');
+  }
+  if (allNotes.includes('ginger') && allNotes.includes('strong')) {
+    patterns.push('Ginger: keep at 0.25 tsp max — 0.5 tsp was too prominent');
+  }
+  if (allNotes.includes('citrus') || allNotes.includes('lemon') || allNotes.includes('lime')) {
+    patterns.push('Citrus (lemon, lime) is a reliable bridge ingredient — brightens and cuts through richness');
+  }
+  if (allNotes.includes('coconut')) {
+    patterns.push('Coconut (milk and water) works well — adds tropical creaminess without competing');
+  }
+  if (allNotes.includes('amazing') || allNotes.includes('best')) {
+    const best = hits.find(([,v]) => v.tastingNotes && (v.tastingNotes.toLowerCase().includes('amazing') || v.tastingNotes.toLowerCase().includes('best')));
+    if (best) patterns.push(`Best pairing so far: ${best[1].name} — herb bridge + tropical contrast hybrid`);
+  }
+
+  // Misses
+  misses.forEach(([meal, shake]) => {
+    avoid.push(`${shake.name} (${meal})${shake.tastingNotes ? ': ' + shake.tastingNotes : ''}`);
+  });
+
+  return { patterns, confirmed, avoid };
+}
+
+function buildShakePromptContext() {
+  const learning = buildShakeLearning();
+  let context = '';
+
+  if (learning.patterns.length > 0) {
+    context += 'LEARNED PATTERNS FROM PREVIOUS PAIRINGS:\n';
+    learning.patterns.forEach(p => context += '• ' + p + '\n');
+    context += '\n';
+  }
+
+  if (learning.confirmed.length > 0) {
+    context += 'CONFIRMED HITS (reference these flavor profiles and strategies):\n';
+    learning.confirmed.slice(-6).forEach(c => context += '• ' + c + '\n');
+    context += '\n';
+  }
+
+  if (learning.avoid.length > 0) {
+    context += 'MISSES TO AVOID:\n';
+    learning.avoid.forEach(a => context += '• ' + a + '\n');
+    context += '\n';
+  }
+
+  return context;
+}
+
 // ── SETUP BANNER ─────────────────────────────────────────────────────────────────
 function checkBannerVisibility() {
   const key = localStorage.getItem('nixon_api_key') || '';
@@ -4329,6 +4964,18 @@ function checkBannerSetup() {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 const _savedOk = loadState();
+// Re-apply coded aisle defaults over stale localStorage entries
+// so code changes to itemAisleMap always take effect on next load
+Object.entries(DEFAULT_AISLE_MAP).forEach(([k, v]) => {
+  // Only overwrite if the saved value differs from the NEW coded default
+  // Don't overwrite user-customized assignments that aren't in the coded defaults
+  if (itemAisleMap[k] !== v) {
+    // Only update if it was previously a coded default (not a user custom assignment)
+    // We detect user custom by checking if it was in the OLD snapshot
+    // Simple approach: always apply coded defaults for items that exist in DEFAULT_AISLE_MAP
+    itemAisleMap[k] = v;
+  }
+});
 migrateOldMealNames();
 checkBannerVisibility();
 renderBusyToggles();
@@ -4351,7 +4998,7 @@ renderHistory();
     <p class="modal-sub" style="margin-bottom:16px;">Pick a main, customize sides, shake, and dessert</p>
 
     <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:8px;">Main Course</div>
-    <div id="composer-main-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px;max-height:200px;overflow-y:auto;"></div>
+    <div id="composer-main-grid" style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px;"></div>
 
     <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:8px;">Sides <span style="font-weight:400;color:var(--text3);">(tap to add/remove)</span></div>
     <div id="composer-sides-grid" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;"></div>
