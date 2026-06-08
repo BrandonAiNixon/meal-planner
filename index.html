@@ -3301,24 +3301,35 @@ function buildShoppingList() {
     shoppingItems.push(item);
   });
 
-  // Add View qty items
+  // Add View qty items — always add, even if key was seen before
   Object.entries(viewQtyMap).forEach(([vqKey, data]) => {
-    if (data.sources.length <= 1) return; // only show View qty if used in 2+ places
     const displayName = data.displayName || vqKey.replace('shake_vq:', '');
     const key = vqKey.replace('shake_vq:', '');
-    if (!added.has(key) && !added.has('shake:' + key)) {
-      added.add(key);
-      shoppingItems.push({ name: displayName, qty: null, unit: '', section: data.section, checked: false, source: 'meal', viewQty: true, viewQtySources: data.sources });
-    } else {
-      // Update existing item to show View qty button
-      const existing = shoppingItems.find(i => {
-        const ik = safeStr(i.name).toLowerCase().replace(/[^a-z]/g,'');
-        return ik === key || ik.includes(key) || key.includes(ik);
-      });
-      if (existing && data.sources.length > 1) {
+    const shakeKey = 'shake:' + key;
+    // Check if already in shopping list
+    const existing = shoppingItems.find(i => {
+      const ik = safeStr(i.name).toLowerCase().replace(/[^a-z]/g,'');
+      return ik === key || ik.includes(key) || key.includes(ik);
+    });
+    if (existing) {
+      // Attach viewQty to existing item if multiple sources
+      if (data.sources.length > 1) {
         existing.viewQty = true;
         existing.viewQtySources = data.sources;
       }
+    } else {
+      // Add to list — viewqty items (like ribeye steaks) ALWAYS get added
+      added.add(key);
+      shoppingItems.push({
+        name: displayName,
+        qty: null, unit: '',
+        section: data.section,
+        checked: false,
+        source: 'meal',
+        viewQty: data.sources.length > 1,
+        viewQtySources: data.sources.length > 1 ? data.sources : null,
+        note: data.sources[0] && data.sources[0].note ? data.sources[0].note : null,
+      });
     }
   });
 
@@ -3350,28 +3361,26 @@ function renderShoppingList() {
   const PRODUCE_SIGNALS = /\b(sprig|bunch|bundle|head|stalk|clove)\b/i;
   const DRIED_SIGNALS = /\b(dried|ground|powder|seasoning|mix|extract|flakes)\b/i;
 
-  // Filter excluded items; filter pantry staples unless marked Low or fresh
+  // Filter excluded items; filter pantry staples unless marked Low
   shoppingItems = shoppingItems.filter(i => {
     if (i.section === 'Excluded') return false;
-    if (i.source === 'manual') return true; // never filter manual items
-    const iName = safeStr(i.name);
+    if (i.source === 'manual') return true;
+    if (i.source === 'pantry') return true; // low pantry items always show
 
-    // Fresh ingredients always go on the list — only when "fresh" is explicit
-    // or item is a whole produce item (bunch, sprig, head etc)
+    const iName = safeStr(i.name);
     const isFresh = (FRESH_SIGNALS.test(iName) || PRODUCE_SIGNALS.test(iName)) && !DRIED_SIGNALS.test(iName);
     if (isFresh) return true;
 
-    // Check if item is in pantryStaples — exact match first, then case-insensitive
-    const isStaple = pantryStaples.has(iName) || [...pantryStaples].some(s => {
+    // Check pantry staple membership — case-insensitive
+    const iNameLower = iName.toLowerCase();
+    const matchedStaple = [...pantryStaples].find(s => {
       const sl = s.toLowerCase();
-      const nl = iName.toLowerCase();
-      // Must be exact or near-exact match — prevent "basil" matching "fresh basil leaves"
-      return nl === sl || nl === 'dried ' + sl || nl === 'ground ' + sl;
+      return iNameLower === sl || iNameLower === 'dried ' + sl || iNameLower === 'ground ' + sl;
     });
-    if (!isStaple) return true;
+    if (!matchedStaple) return true; // not a staple — keep on list
 
-    // Pantry staple — only show on list if marked Low
-    const status = pantryState[iName] || 'unknown';
+    // Is a pantry staple — only show if Low
+    const status = pantryState[iName] || pantryState[matchedStaple] || pantryState[iNameLower] || 'unknown';
     if (status === 'low') {
       i.section = itemSection(iName);
       if (i.section === 'Pantry Staple') i.section = 'Needs Aisle';
@@ -3379,6 +3388,7 @@ function renderShoppingList() {
     }
     return false;
   });
+
 
   const filteredActive = shoppingItems.filter(i => !i.checked);
   const doneItems = shoppingItems.filter(i => i.checked);
@@ -3564,8 +3574,8 @@ function addManualItem() {
   input.value = '';
   if (qtyInput) qtyInput.value = '';
   if (unitInput) unitInput.value = '';
-  renderShoppingList();
   saveState();
+  try { renderShoppingList(); } catch(e) { console.error('render error', e); }
   // If unknown aisle, briefly highlight the needs-aisle banner
   if (section === 'Needs Aisle') {
     const banner = document.querySelector('.needs-aisle-banner');
@@ -3588,10 +3598,16 @@ function addPantryStaple() {
   pantryStaples.add(val);
   pantryState[val] = 'stocked';
   input.value = '';
+  // Remove from shopping list without rebuilding (preserves checked/cart state)
+  shoppingItems = shoppingItems.filter(i => {
+    const n = safeStr(i.name).toLowerCase();
+    const v = val.toLowerCase();
+    return !(n === v || (v.length >= 5 && (n.includes(v) || v.includes(n))));
+  });
   saveState();
   renderPantryStaplesList();
   renderPantry();
-  buildShoppingList();
+  renderShoppingList();
 }
 
 function renderPantryStaplesList() {
@@ -3611,8 +3627,12 @@ function renderPantryStaplesList() {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:0.5px solid var(--border);';
     const safeName = item.replace(/'/g,"\'");
-    const aisleLabel = aisle !== 'Needs Aisle' ? aisle : '📍 No aisle assigned';
-    row.innerHTML = '<div style="flex:1;"><div style="font-size:13px;">' + item + '</div><div style="font-size:11px;color:var(--text3);">' + aisleLabel + '</div></div>'
+    const aisleLabel = aisle !== 'Needs Aisle' ? aisle : '📍 Tap to assign aisle';
+    const aisleColor = aisle !== 'Needs Aisle' ? 'var(--text3)' : 'var(--amber)';
+    row.innerHTML = '<div style="flex:1;cursor:pointer;" onclick="openAisleEdit(\'' + safeName + '\')">'
+      + '<div style="font-size:13px;">' + item + '</div>'
+      + '<div style="font-size:11px;color:' + aisleColor + ';">' + aisleLabel + ' ✏️</div>'
+      + '</div>'
       + '<button onclick="cycleStaple(\'' + safeName + '\');renderPantryStaplesList();" style="font-size:11px;color:' + color + ';background:none;border:1px solid ' + color + ';border-radius:20px;padding:3px 10px;cursor:pointer;white-space:nowrap;">' + label + '</button>'
       + '<button onclick="pantryStaples.delete(\'' + safeName + '\');saveState();renderPantryStaplesList();buildShoppingList();" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;">✕</button>';
     container.appendChild(row);
