@@ -416,37 +416,37 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
 const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
 const MEALS = [
-  { name:'Brisket', prep:'S', cost:'$$', leftover:'brisket', tier:1, sides:['Potato salad','Mac salad'], shake:'auto' },
-  { name:'Cheese Tortellini', prep:'M', cost:'$$', tier:1, sides:['Green beans','Caesar salad'], shake:'auto' },
-  { name:'Chicken Fried Steak', prep:'M', cost:'$$', tier:2, mainNote:'Bake frozen chicken fried steak per package directions.', sides:['Mashed potatoes'], shake:'auto' },
-  { name:'Chicken Sausage Gumbo', prep:'S', cost:'$$', leftover:'gumbo', tier:1, sides:['Rice'], shake:'auto' },
-  { name:'Chicken Spaghetti', prep:'M', cost:'$', tier:1, sides:['Green beans'], shake:'auto' },
-  { name:'Chicken Wraps', prep:'M', cost:'$$', tier:3, sides:['Waffle fries'], shake:'auto' },
-  { name:'Crunch Wraps', prep:'M', cost:'$$', tier:1, sides:['Fried cheese sticks','Seasoned fries'], shake:'auto' },
-  { name:'Easy Skillet Chicken Thighs', prep:'Q', cost:'$', tier:1, sides:['Wedge salad'], shake:'auto' },
-  { name:'Egg Rolls & Pot Stickers', prep:'Q', cost:'$$', tier:2, mainNote:'Cook egg rolls and pot stickers per package directions.', sides:['BBQ pork fried rice'], shake:'auto' },
-  { name:'Enchiladas', prep:'Q', cost:'$$', tier:1, sides:['Chips & salsa'], shake:'auto' },
-  { name:'Fajita Nachos', prep:'M', cost:'$$$', isLeftover:true, leftoverOf:'fajita', effectiveCost:'$', tier:1, sides:[], shake:'auto' },
-  { name:'Fajita Quesadillas', prep:'M', cost:'$$$', isLeftover:true, leftoverOf:'fajita', effectiveCost:'$', tier:1, sides:['Chips & salsa'], shake:'auto' },
-  { name:'Fajitas', prep:'M', cost:'$$$', leftover:'fajita', tier:2, mainNote:'Frozen pre-cooked fajita meat from HEB. Heat per package directions.', sides:['Chips & salsa'], shake:'auto' },
-  { name:'Frozen Lasagna', prep:'M', cost:'$$', tier:2, mainNote:'Bake per package directions.', sides:['Green beans','Caesar salad'], shake:'auto' },
-  { name:'Garlic Butter Steak Bites & Pesto Tortellini', prep:'S', cost:'$$$', tier:1, sides:['Wedge salad','Asparagus'], shake:'auto' },
-  { name:'Garlic Sesame Chicken Noodles', prep:'M', cost:'$$', tier:1, sides:['Egg rolls'], shake:'auto' },
-  { name:"Hoppin' Johns", prep:'Q', cost:'$', tier:1, sides:['Green beans'], shake:'auto' },
-  { name:'Hot Dogs', prep:'Q', cost:'$', tier:3, sides:['Chips'], shake:'auto' },
-  { name:"Dave's Chicken", prep:'Q', cost:'$', tier:2, mainNote:"Prepare mac & cheese per box. Dave's chicken from HEB deli or frozen.", sides:['Mac & cheese'], shake:'auto' },
-  { name:'Million Dollar Pasta', prep:'M', cost:'$', leftover:'pasta', tier:1, sides:['Caesar salad'], shake:'auto' },
-  { name:'Pizza', prep:'Q', cost:'$', tier:2, mainNote:'Bake frozen pizza per package directions.', sides:['Chips'], shake:'auto' },
-  { name:'Pork Ribs', prep:'S', cost:'$$$', leftover:'ribs', tier:1, sides:['Baked beans'], shake:'auto' },
-  { name:'Roman Holiday', prep:'M', cost:'$$', tier:1, sides:['Caesar salad'], shake:'auto' },
-  { name:'Slider Burgers', prep:'M', cost:'$$$', tier:1, sides:['Chips','Baked beans'], shake:'auto' },
-  { name:'Spaghetti', prep:'M', cost:'$$', tier:2, mainNote:'Brown beef, add jarred sauce, simmer. Cook pasta per package.', sides:['Caesar salad'], shake:'auto' },
-  { name:'Steak', prep:'S', cost:'$$$', tier:1, sides:['Caesar salad'], shake:'auto' },
-    { name:'Sweet & Sour Chicken', prep:'Q', cost:'$$', tier:2, mainNote:'Cook per package directions.', sides:['BBQ pork fried rice','Chow mein'], shake:'auto' },
-  { name:'Tacos', prep:'M', cost:'$$', leftover:'taco-meat', tier:2, mainNote:'Brown beef with taco seasoning per packet. Serve with shells and toppings.', sides:['Chips & salsa'], shake:'auto' },
-  { name:'Tomato Basil Soup & Grilled Cheese', prep:'Q', cost:'$', tier:3, sides:[], shake:'auto' },
-  { name:'Turkey Club', prep:'M', cost:'$$$', tier:1, sides:['Chips'], shake:'auto' },
-  { name:'Wings', prep:'M', cost:'$$$', tier:2, mainNote:'Cook wings per package directions. Toss in sauce of choice.', sides:['Chips & salsa'], shake:'auto' },
+  { name:'Brisket', prep:'S', cost:'$$', mealType:'dinner', leftover:'brisket', tier:1, sides:['Potato salad','Mac salad'], shake:'auto' },
+  { name:'Cheese Tortellini', prep:'M', cost:'$$', mealType:'dinner', tier:1, sides:['Green beans','Caesar salad'], shake:'auto' },
+  { name:'Chicken Fried Steak', prep:'M', cost:'$$', mealType:'dinner', tier:2, mainNote:'Bake frozen chicken fried steak per package directions.', sides:['Mashed potatoes'], shake:'auto' },
+  { name:'Chicken Sausage Gumbo', prep:'S', cost:'$$', mealType:'dinner', leftover:'gumbo', tier:1, sides:['Rice'], shake:'auto' },
+  { name:'Chicken Spaghetti', prep:'M', cost:'$', mealType:'dinner', tier:1, sides:['Green beans'], shake:'auto' },
+  { name:'Chicken Wraps', prep:'M', cost:'$$', mealType:'dinner', tier:3, sides:['Waffle fries'], shake:'auto' },
+  { name:'Crunch Wraps', prep:'M', cost:'$$', mealType:'dinner', tier:1, sides:['Fried cheese sticks','Seasoned fries'], shake:'auto' },
+  { name:'Easy Skillet Chicken Thighs', prep:'Q', cost:'$', mealType:'dinner', tier:1, sides:['Wedge salad'], shake:'auto' },
+  { name:'Egg Rolls & Pot Stickers', prep:'Q', cost:'$$', mealType:'dinner', tier:2, mainNote:'Cook egg rolls and pot stickers per package directions.', sides:['BBQ pork fried rice'], shake:'auto' },
+  { name:'Enchiladas', prep:'Q', cost:'$$', mealType:'dinner', tier:1, sides:['Chips & salsa'], shake:'auto' },
+  { name:'Fajita Nachos', prep:'M', cost:'$$$', mealType:'dinner', isLeftover:true, leftoverOf:'fajita', effectiveCost:'$', tier:1, sides:[], shake:'auto' },
+  { name:'Fajita Quesadillas', prep:'M', cost:'$$$', mealType:'dinner', isLeftover:true, leftoverOf:'fajita', effectiveCost:'$', tier:1, sides:['Chips & salsa'], shake:'auto' },
+  { name:'Fajitas', prep:'M', cost:'$$$', mealType:'dinner', leftover:'fajita', tier:2, mainNote:'Frozen pre-cooked fajita meat from HEB. Heat per package directions.', sides:['Chips & salsa'], shake:'auto' },
+  { name:'Frozen Lasagna', prep:'M', cost:'$$', mealType:'dinner', tier:2, mainNote:'Bake per package directions.', sides:['Green beans','Caesar salad'], shake:'auto' },
+  { name:'Garlic Butter Steak Bites & Pesto Tortellini', prep:'S', cost:'$$$', mealType:'dinner', tier:1, sides:['Wedge salad','Asparagus'], shake:'auto' },
+  { name:'Garlic Sesame Chicken Noodles', prep:'M', cost:'$$', mealType:'dinner', tier:1, sides:['Egg rolls'], shake:'auto' },
+  { name:"Hoppin' Johns", prep:'Q', cost:'$', mealType:'dinner', tier:1, sides:['Green beans'], shake:'auto' },
+  { name:'Hot Dogs', prep:'Q', cost:'$', mealType:'dinner', tier:3, sides:['Chips'], shake:'auto' },
+  { name:"Dave's Chicken", prep:'Q', cost:'$', mealType:'dinner', tier:2, mainNote:"Prepare mac & cheese per box. Dave's chicken from HEB deli or frozen.", sides:['Mac & cheese'], shake:'auto' },
+  { name:'Million Dollar Pasta', prep:'M', cost:'$', mealType:'dinner', leftover:'pasta', tier:1, sides:['Caesar salad'], shake:'auto' },
+  { name:'Pizza', prep:'Q', cost:'$', mealType:'dinner', tier:2, mainNote:'Bake frozen pizza per package directions.', sides:['Chips'], shake:'auto' },
+  { name:'Pork Ribs', prep:'S', cost:'$$$', mealType:'dinner', leftover:'ribs', tier:1, sides:['Baked beans'], shake:'auto' },
+  { name:'Roman Holiday', prep:'M', cost:'$$', mealType:'dinner', tier:1, sides:['Caesar salad'], shake:'auto' },
+  { name:'Slider Burgers', prep:'M', cost:'$$$', mealType:'dinner', tier:1, sides:['Chips','Baked beans'], shake:'auto' },
+  { name:'Spaghetti', prep:'M', cost:'$$', mealType:'dinner', tier:2, mainNote:'Brown beef, add jarred sauce, simmer. Cook pasta per package.', sides:['Caesar salad'], shake:'auto' },
+  { name:'Steak', prep:'S', cost:'$$$', mealType:'dinner', tier:1, sides:['Caesar salad'], shake:'auto' },
+    { name:'Sweet & Sour Chicken', prep:'Q', cost:'$$', mealType:'dinner', tier:2, mainNote:'Cook per package directions.', sides:['BBQ pork fried rice','Chow mein'], shake:'auto' },
+  { name:'Tacos', prep:'M', cost:'$$', mealType:'dinner', leftover:'taco-meat', tier:2, mainNote:'Brown beef with taco seasoning per packet. Serve with shells and toppings.', sides:['Chips & salsa'], shake:'auto' },
+  { name:'Tomato Basil Soup & Grilled Cheese', prep:'Q', cost:'$', mealType:'dinner', tier:3, sides:[], shake:'auto' },
+  { name:'Turkey Club', prep:'M', cost:'$$$', mealType:'dinner', tier:1, sides:['Chips'], shake:'auto' },
+  { name:'Wings', prep:'M', cost:'$$$', mealType:'dinner', tier:2, mainNote:'Cook wings per package directions. Toss in sauce of choice.', sides:['Chips & salsa'], shake:'auto' },
 ];
 
 const RECIPES = {
@@ -1215,6 +1215,7 @@ const DESSERTS = {
 
 
 const SIDE_INGREDIENTS = {
+  'Egg rolls': ['Frozen egg rolls'],
   'Chips': ['Misc chips bag'],
   'Chips & salsa': ['Misc chips bag','Salsa jar'],
   'Baked beans': ['Baked beans 2 cans','Brown sugar','Bacon'],
@@ -1317,8 +1318,8 @@ let itemAisleMap = {
   'Cajun seasoning': 'Aisle 5',
   'Carnation instant breakfast chocolate': 'Aisle 9',
   'Celery': 'Produce',
-  'Cheese pizza frozen x2': 'Frozen',
-  'Cheese tortellini 12oz': 'Frozen',
+  'Cheese pizza frozen x2': 'Frozen Aisle 16',
+  'Cheese tortellini 12oz': 'Frozen Aisle 16',
   'Cheez-it': 'Aisle 12',
   'Cherry tomatoes': 'Produce',
   'Chicken breast 1lb': 'Meat Market',
@@ -1376,24 +1377,24 @@ let itemAisleMap = {
   'Fresh parsley': 'Produce',
   'Fresh thyme': 'Produce',
   'Fresh tomatoes': 'Produce',
-  'Frozen BBQ pork fried rice bag': 'Frozen',
-  'Frozen broccoli': 'Frozen',
-  'Frozen cheese tortellini 16oz': 'Frozen',
-  'Frozen egg rolls box': 'Frozen',
-  'Frozen fried rice bag': 'Frozen',
-  'Frozen lasagna x2': 'Frozen',
-  'Frozen mango chunks': 'Frozen',
-  'Frozen mixed berries': 'Frozen',
-  'Frozen mozzarella sticks bag': 'Frozen',
-  'Frozen onion red & green pepper mix': 'Frozen',
-  'Frozen peas and carrots': 'Frozen',
-  'Frozen pot stickers bag': 'Frozen',
-  'Frozen seasoned fries 2 bags': 'Frozen',
-  'Frozen spinach': 'Frozen',
-  'Frozen sweet potato fries 2 bags': 'Frozen',
-  'Frozen waffle fries': 'Frozen',
-  'Frozen waffle fries 2 bags': 'Frozen',
-  'Frozen watermelon chunks': 'Frozen',
+  'Frozen BBQ pork fried rice bag': 'Frozen Aisle 16',
+  'Frozen broccoli': 'Frozen Aisle 16',
+  'Frozen cheese tortellini 16oz': 'Frozen Aisle 16',
+  'Frozen egg rolls box': 'Frozen Aisle 16',
+  'Frozen fried rice bag': 'Frozen Aisle 16',
+  'Frozen lasagna x2': 'Frozen Aisle 16',
+  'Frozen mango chunks': 'Frozen Aisle 16',
+  'Frozen mixed berries': 'Frozen Aisle 16',
+  'Frozen mozzarella sticks bag': 'Frozen Aisle 16',
+  'Frozen onion red & green pepper mix': 'Frozen Aisle 16',
+  'Frozen peas and carrots': 'Frozen Aisle 16',
+  'Frozen pot stickers bag': 'Frozen Aisle 16',
+  'Frozen seasoned fries 2 bags': 'Frozen Aisle 16',
+  'Frozen spinach': 'Frozen Aisle 16',
+  'Frozen sweet potato fries 2 bags': 'Frozen Aisle 16',
+  'Frozen waffle fries': 'Frozen Aisle 16',
+  'Frozen waffle fries 2 bags': 'Frozen Aisle 16',
+  'Frozen watermelon chunks': 'Frozen Aisle 16',
   'Fuji apples': 'Produce',
   'Garam masala': 'Aisle 5',
   'Garlic': 'Produce',
@@ -1539,9 +1540,9 @@ const SHAKE_AISLE_MAP = {
   '1 cup coconut water': 'Aisle 14',
   '1 cup unsweetened almond milk': 'Aisle 9',
   // Frozen fruit
-  '¾ cup frozen mango chunks': 'Frozen',
-  '¾ cup frozen mixed berries': 'Frozen',
-  '1 cup frozen watermelon chunks': 'Frozen',
+  '¾ cup frozen mango chunks': 'Frozen Aisle 16',
+  '¾ cup frozen mixed berries': 'Frozen Aisle 16',
+  '1 cup frozen watermelon chunks': 'Frozen Aisle 16',
   // Fresh produce
   '1 tbsp fresh lime juice': 'Produce',
   '3 fresh basil leaves': 'Produce',
@@ -1601,7 +1602,7 @@ function itemSection(name) {
   if (/milk|cream(?! cheese)|half.and.half/.test(lower)) return 'Dairy';
   if (/cream cheese/.test(lower)) return 'Dairy';
   if (/protein powder|collagen|erythritol|xylitol|truvia|glucomannan|xanthan/.test(lower)) return 'Healthy Living';
-  if (/frozen|mango|watermelon|berries|berry/.test(lower)) return 'Frozen';
+  if (/frozen|mango chunk|watermelon chunk|berr(y|ies)|pineapple chunk|peach slice|strawberr|cucumber chunk/.test(lower)) return 'Frozen Aisle 16';
   if (/coconut milk|coconut water|rice milk|almond milk/.test(lower)) return 'Aisle 9';
   if (/cinnamon|vanilla extract|cocoa|chocolate|peanut butter|honey|brown sugar/.test(lower)) return 'Aisle 8';
   if (/basil|mint|parsley|cilantro|thyme|rosemary|lemon|lime|ginger/.test(lower)) return 'Produce';
@@ -2667,11 +2668,8 @@ const STRUCTURED_MEALS = {
     mainNote: 'Bake frozen chicken fried steak per package directions.',
     ingredients: [
       { type:'simple', name:'Frozen chicken fried steak', qty:1, unit:'box', section:'Frozen' },
-      { type:'simple', name:'Potatoes', qty:5, unit:'lb', section:'Produce' },
-      { type:'simple', name:'Cream cheese', qty:1, unit:'block', section:'Dairy' },
       { type:'viewqty', name:'Butter', qty:1, unit:'stick', section:'Dairy' },
       { type:'viewqty', name:'Milk', qty:0.5, unit:'cup', section:'Dairy' },
-      { type:'staple', name:'Garlic powder' },
       { type:'staple', name:'Salt' },
     ]
   },
@@ -2686,7 +2684,6 @@ const STRUCTURED_MEALS = {
       { type:'staple', name:'Flour', qty:6, unit:'tbsp' },
       { type:'viewqty', name:'Chicken broth', qty:32, unit:'oz', section:'Aisle 14' },
       { type:'simple', name:'Chicken bouillon cube', qty:1, unit:'cube', section:'Aisle 14' },
-      { type:'simple', name:'Long grain rice', qty:2, unit:'cup', section:'Aisle 7' },
       { type:'staple', name:'Bacon grease', qty:1, unit:'tbsp' },
     ]
   },
@@ -2705,7 +2702,6 @@ const STRUCTURED_MEALS = {
     tier: 3,
     ingredients: [
       { type:'simple', name:'Frozen fried chicken breasts or tenders', qty:1, unit:'bag', section:'Frozen' },
-      { type:'simple', name:'Frozen waffle fries', qty:1, unit:'bag', section:'Frozen' },
       { type:'simple', name:'Flour tortillas', qty:1, unit:'package', section:'Aisle 4' },
       { type:'simple', name:'Iceberg lettuce', qty:1, unit:'head', section:'Produce' },
       { type:'simple', name:'Chick-Fil-A Avocado Lime Ranch', qty:1, unit:'bottle', section:'Produce' },
@@ -2725,8 +2721,6 @@ const STRUCTURED_MEALS = {
       { type:'simple', name:'Tomato', qty:2, unit:'whole', section:'Produce' },
       { type:'simple', name:'Mexican cheese blend shredded', qty:2, unit:'cup', section:'Dairy' },
       { type:'staple', name:'Vegetable oil' },
-      { type:'simple', name:'Frozen seasoned fries', qty:2, unit:'bag', section:'Frozen' },
-      { type:'simple', name:'Frozen mozzarella sticks', qty:1, unit:'bag', section:'Frozen' },
     ]
   },
   'Easy Skillet Chicken Thighs': {
@@ -2757,7 +2751,6 @@ const STRUCTURED_MEALS = {
     ingredients: [
       { type:'simple', name:'Frozen egg rolls', qty:1, unit:'box', section:'Frozen' },
       { type:'simple', name:'Frozen pot stickers', qty:1, unit:'bag', section:'Frozen' },
-      { type:'simple', name:'Frozen BBQ pork fried rice', qty:1, unit:'bag', section:'Frozen' },
       { type:'staple', name:'Soy sauce' },
       { type:'staple', name:'Sesame oil' },
     ]
@@ -2840,7 +2833,6 @@ const STRUCTURED_MEALS = {
       { type:'simple', name:'Basil pesto', qty:0.25, unit:'cup', section:'Aisle 6' },
       { type:'staple', name:'Garlic powder' },
       { type:'simple', name:'Caesar salad kit', qty:1, unit:'package', section:'Produce' },
-      { type:'simple', name:'fresh asparagus', qty:1, unit:'bundle', section:'Produce' },
     ]
   },
   'Garlic Sesame Chicken Noodles': {
@@ -2892,7 +2884,6 @@ const STRUCTURED_MEALS = {
     ingredients: [
       { type:'simple', name:'Ball Park Bun Size Uncured Beef Hot Dogs', qty:1, unit:'package', section:'Meat & Cheese' },
       { type:'simple', name:'Hot dog buns', qty:1, unit:'package', section:'Aisle 4' },
-      { type:'simple', name:'Misc chips', qty:1, unit:'bag', section:'Aisle 10' },
       { type:'staple', name:'Mustard' },
       { type:'staple', name:'Ketchup' },
       { type:'staple', name:'Dill relish' },
@@ -2930,7 +2921,6 @@ const STRUCTURED_MEALS = {
     mainNote: 'Bake frozen pizza per package directions.',
     ingredients: [
       { type:'simple', name:'Frozen cheese pizza', qty:2, unit:'box', section:'Frozen' },
-      { type:'simple', name:'Misc chips', qty:1, unit:'bag', section:'Aisle 10' },
     ]
   },
   'Pork Ribs': {
@@ -2975,8 +2965,6 @@ const STRUCTURED_MEALS = {
       { type:'staple', name:'Ketchup' },
       { type:'staple', name:'Mustard' },
       { type:'staple', name:'Dill relish' },
-      { type:'simple', name:'Misc chips', qty:1, unit:'bag', section:'Aisle 10' },
-      { type:'simple', name:'Baked beans', qty:2, unit:'can', section:'Aisle 14' },
     ]
   },
   'Spaghetti': {
@@ -3014,8 +3002,6 @@ const STRUCTURED_MEALS = {
     mainNote: 'Cook per package directions.',
     ingredients: [
       { type:'simple', name:'Frozen sweet and sour chicken', qty:1, unit:'bag', section:'Frozen' },
-      { type:'simple', name:'Frozen BBQ pork fried rice', qty:1, unit:'bag', section:'Frozen' },
-      { type:'simple', name:'Chow mein noodles', qty:1, unit:'box', section:'Aisle 6' },
       { type:'staple', name:'Soy sauce' },
       { type:'staple', name:'Sesame oil' },
     ]
@@ -3059,7 +3045,6 @@ const STRUCTURED_MEALS = {
       { type:'simple', name:'Hickory Smoked Bacon', qty:1, unit:'package', section:'Meat & Cheese' },
       { type:'simple', name:'White bread', qty:1, unit:'loaf', section:'Aisle 4' },
       { type:'staple', name:'Mayo' },
-      { type:'simple', name:'Misc chips', qty:1, unit:'bag', section:'Aisle 10' },
     ]
   },
   'Wings': {
@@ -3071,7 +3056,6 @@ const STRUCTURED_MEALS = {
       { type:'simple', name:'Buffalo Wild Wings Asian Zing sauce', qty:1, unit:'bottle', section:'Aisle 5' },
       { type:'simple', name:'Buffalo Wild Wings Parmesan Garlic sauce', qty:1, unit:'bottle', section:'Aisle 5' },
       { type:'staple', name:'Ranch dressing' },
-      { type:'simple', name:'Misc chips', qty:1, unit:'bag', section:'Aisle 10' },
       { type:'simple', name:'Salsa', qty:1, unit:'jar', section:'Aisle 5' },
     ]
   },
@@ -3182,21 +3166,19 @@ function buildShoppingList() {
       }
     });
 
-    // Add side ingredients only for meals WITHOUT structured data
-    // (structured meals already include sides in their ingredient list)
-    if (!structured) {
-      (meal.sides || []).forEach(side => {
-        (SIDE_INGREDIENTS[side] || []).forEach(ing => {
-          const ingStr = typeof ing === 'object' ? ing.name : String(ing);
-          if ([...excludedItems].some(ex => ingStr.toLowerCase() === ex.toLowerCase())) return;
-          const key = ingStr.toLowerCase().replace(/[^a-z]/g,'');
-          if (!added.has(key)) {
-            added.add(key);
-            shoppingItems.push({ name: ingStr, qty: null, unit: '', section: itemSection(ingStr), checked: false, source: 'side' });
-          }
-        });
+    // Always process sides via SIDE_INGREDIENTS
+    // STRUCTURED_MEALS handles main course ingredients; sides are always separate
+    (meal.sides || []).forEach(side => {
+      (SIDE_INGREDIENTS[side] || []).forEach(ing => {
+        const ingStr = typeof ing === 'object' ? ing.name : String(ing);
+        if ([...excludedItems].some(ex => ingStr.toLowerCase() === ex.toLowerCase())) return;
+        const key = ingStr.toLowerCase().replace(/[^a-z]/g,'');
+        if (!added.has(key)) {
+          added.add(key);
+          shoppingItems.push({ name: ingStr, qty: null, unit: '', section: itemSection(ingStr), checked: false, source: 'side' });
+        }
       });
-    }
+    });
 
     // Track shake ingredients for View qty (same ingredient across multiple shakes)
     const shakeViewQty = window._shakeViewQty = window._shakeViewQty || {};
@@ -4927,6 +4909,100 @@ function buildShakePromptContext() {
   return context;
 }
 
+// ── EXPORT / IMPORT ──────────────────────────────────────────────────────────────
+function exportAllData() {
+  const data = {
+    version: '1.0',
+    exportDate: new Date().toISOString(),
+    type: 'full',
+    weekPlan,
+    busyDays: [...busyDays],
+    shoppingItems,
+    pantryState,
+    pantryStaples: [...pantryStaples],
+    mealHistory,
+    shakePairings: SHAKE_PAIRINGS,
+    itemAisleMap,
+    storeSections,
+    prefs,
+    excludedItems: [...excludedItems],
+  };
+  downloadJSON(data, 'nixon-meal-planner-backup-' + new Date().toISOString().slice(0,10) + '.json');
+}
+
+function exportRecipes() {
+  const recipes = {};
+  Object.keys(RECIPES).forEach(name => { recipes[name] = RECIPES[name]; });
+  const data = {
+    version: '1.0',
+    exportDate: new Date().toISOString(),
+    type: 'recipes',
+    recipes,
+    shakePairings: SHAKE_PAIRINGS,
+    sideRecipes: SIDE_RECIPES,
+    desserts: DESSERTS,
+  };
+  downloadJSON(data, 'nixon-recipes-' + new Date().toISOString().slice(0,10) + '.json');
+}
+
+function downloadJSON(data, filename) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      const status = document.getElementById('import-status');
+
+      if (data.type === 'recipes') {
+        // Import recipes only
+        if (data.recipes) Object.assign(RECIPES, data.recipes);
+        if (data.shakePairings) Object.entries(data.shakePairings).forEach(([k,v]) => { SHAKE_PAIRINGS[k] = v; });
+        saveState();
+        status.textContent = '✅ Recipes imported';
+        status.style.color = 'var(--accent2)';
+        return;
+      }
+
+      // Full data import
+      if (data.weekPlan) weekPlan = data.weekPlan.map(d => ({...d, date: new Date(d.date)}));
+      if (data.busyDays) busyDays = new Set(data.busyDays);
+      if (data.shoppingItems) shoppingItems = data.shoppingItems;
+      if (data.pantryState) pantryState = data.pantryState;
+      if (data.pantryStaples) data.pantryStaples.forEach(s => pantryStaples.add(s));
+      if (data.mealHistory) mealHistory = data.mealHistory;
+      if (data.shakePairings) Object.entries(data.shakePairings).forEach(([k,v]) => { SHAKE_PAIRINGS[k] = v; });
+      if (data.itemAisleMap) Object.assign(itemAisleMap, data.itemAisleMap);
+      if (data.storeSections) storeSections = data.storeSections;
+      if (data.prefs) Object.assign(prefs, data.prefs);
+      if (data.excludedItems) data.excludedItems.forEach(i => excludedItems.add(i));
+
+      saveState();
+      renderWeek();
+      buildShoppingList();
+      renderPantry();
+      status.textContent = '✅ Data imported successfully';
+      status.style.color = 'var(--accent2)';
+    } catch(err) {
+      document.getElementById('import-status').textContent = '❌ Invalid file: ' + err.message;
+    }
+    input.value = ''; // reset file input
+  };
+  reader.readAsText(file);
+}
+
 // ── SETUP BANNER ─────────────────────────────────────────────────────────────────
 function checkBannerVisibility() {
   const key = localStorage.getItem('nixon_api_key') || '';
@@ -4964,25 +5040,31 @@ function checkBannerSetup() {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 const _savedOk = loadState();
-// Re-apply coded aisle defaults over stale localStorage entries
-// so code changes to itemAisleMap always take effect on next load
+// Re-apply ONLY new coded aisle entries — don't overwrite user-customized aisles
+// Only add entries that don't exist in saved map (user hasn't customized them)
 Object.entries(DEFAULT_AISLE_MAP).forEach(([k, v]) => {
-  // Only overwrite if the saved value differs from the NEW coded default
-  // Don't overwrite user-customized assignments that aren't in the coded defaults
-  if (itemAisleMap[k] !== v) {
-    // Only update if it was previously a coded default (not a user custom assignment)
-    // We detect user custom by checking if it was in the OLD snapshot
-    // Simple approach: always apply coded defaults for items that exist in DEFAULT_AISLE_MAP
-    itemAisleMap[k] = v;
-  }
+  if (!itemAisleMap[k]) itemAisleMap[k] = v; // only add missing entries
 });
 migrateOldMealNames();
 checkBannerVisibility();
 renderBusyToggles();
 if (_savedOk && weekPlan.length > 0) {
   renderWeek();
-  // Always rebuild shopping list from scratch so new shakes/ingredients are included
+  // Rebuild shopping list but preserve saved checked state and manual items
+  const savedChecked = new Set(shoppingItems.filter(i => i.checked).map(i => i.name.toLowerCase()));
+  const savedManual = shoppingItems.filter(i => i.source === 'manual');
   buildShoppingList();
+  // Restore checked state for items that were checked before
+  shoppingItems.forEach(item => {
+    if (savedChecked.has(item.name.toLowerCase())) item.checked = true;
+  });
+  // Re-add any manual items that buildShoppingList may have missed
+  savedManual.forEach(m => {
+    if (!shoppingItems.find(i => i.name.toLowerCase() === m.name.toLowerCase())) {
+      shoppingItems.push(m);
+    }
+  });
+  renderShoppingList();
 } else {
   generateWeek();
 }
@@ -5173,6 +5255,17 @@ renderHistory();
       <button class="admin-danger-btn" onclick="adminConfirmDanger('clearChecked','Clear completed items','This will uncheck all items on your current shopping list. Your list items stay — only the checkmarks are cleared. This cannot be undone.')">🔄 Clear completed items</button>
       <button class="admin-danger-btn" onclick="adminConfirmDanger('clearHistory','Clear week history','This will erase your 3-week meal rotation history. The app will no longer avoid repeating recent meals until history builds back up. This cannot be undone.')">🗓 Clear week history</button>
       <button class="admin-danger-btn danger" onclick="adminConfirmDanger('resetAisles','Reset all aisle assignments','This will erase every aisle assignment you have made and restore the original pre-mapped defaults. Any custom aisle edits you have made will be permanently lost. This cannot be undone.')">⚠️ Reset item aisles to defaults</button>
+
+      <div style="height:1px;background:var(--border);margin:16px 0;"></div>
+      <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:8px;">Backup & Restore</div>
+      <p style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.5;">Export all your data — meal plan, shopping list, pantry, shake pairings, aisle assignments — to a file. Import to restore on a new device.</p>
+      <button class="admin-add-btn" onclick="exportAllData()" style="margin-bottom:8px;">⬇️ Export all data</button>
+      <button class="admin-add-btn" onclick="exportRecipes()" style="margin-bottom:8px;">⬇️ Export recipes & shakes</button>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+        <input type="file" id="import-file-input" accept=".json" style="display:none;" onchange="importData(this)">
+        <button class="admin-add-btn" onclick="document.getElementById('import-file-input').click()">⬆️ Import data</button>
+        <span id="import-status" style="font-size:12px;color:var(--text3);"></span>
+      </div>
       </div><!-- end body -->
     </div>
   </div>
