@@ -201,7 +201,27 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
 .scaler-val { font-size:15px; font-weight:600; color:var(--text); min-width:24px; text-align:center; }
 .scaler-divider { font-size:13px; color:var(--text3); }
 
+/* RECIPE ADMIN */
+.ra-cat-btn { padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);font-family:inherit;font-size:13px;color:var(--text2);cursor:pointer; }
+.ra-cat-btn.active { background:var(--accent-light);border-color:var(--accent);color:var(--accent);font-weight:500; }
+.ra-ing-row { display:flex;gap:6px;align-items:center;margin-bottom:6px; }
+.ra-ing-row input { padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:13px; }
+.ra-step-row { display:flex;gap:6px;align-items:flex-start;margin-bottom:6px; }
+.ra-step-num { min-width:24px;height:24px;background:var(--accent);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;margin-top:8px; }
+.ra-step-row textarea { flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;resize:vertical;min-height:60px; }
+.ra-remove-btn { background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px;flex-shrink:0; }
+
 /* ADMIN PANEL */
+/* RECIPE ADMIN */
+.ra-cat-btn { padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:var(--surface2);font-family:inherit;font-size:13px;color:var(--text2);cursor:pointer; }
+.ra-cat-btn.active { background:var(--accent-light);border-color:var(--accent);color:var(--accent);font-weight:500; }
+.ra-ing-row { display:flex;gap:6px;align-items:center;margin-bottom:6px; }
+.ra-ing-row input { padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:13px; }
+.ra-step-row { display:flex;gap:6px;align-items:flex-start;margin-bottom:6px; }
+.ra-step-num { min-width:24px;height:24px;background:var(--accent);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;margin-top:8px; }
+.ra-step-row textarea { flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;resize:vertical;min-height:60px; }
+.ra-remove-btn { background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px;flex-shrink:0; }
+
 /* ADMIN PANEL */
 .admin-section { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); margin-bottom:8px; overflow:hidden; }
 .admin-section-header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; cursor:pointer; user-select:none; }
@@ -2518,6 +2538,17 @@ let activeServingsNeeded = 6;
 function openRecipe(mealIndex) {
   restoreScalerForRecipe();
   activeRecipeMealIndex = mealIndex;
+  // Add edit button
+  const editBtnContainer = document.getElementById('recipe-edit-btn-container');
+  if (editBtnContainer && mealIndex >= 0) {
+    const meal = MEALS[mealIndex];
+    editBtnContainer.innerHTML = '';
+    const editBtn = document.createElement('button');
+    editBtn.style.cssText = 'background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--text2);cursor:pointer;';
+    editBtn.textContent = '✏️ Edit';
+    editBtn.onclick = () => { closeModal('recipe-modal'); openRecipeAdmin(meal.name, meal.mealType || 'main'); };
+    editBtnContainer.appendChild(editBtn);
+  }
   const meal = MEALS[mealIndex];
   const recipe = RECIPES[meal.name];
   activeServingsNeeded = recipe ? recipe.serves : 6;
@@ -3313,9 +3344,10 @@ function renderShoppingList() {
 
   // Re-resolve sections and filter excluded items first
   shoppingItems.forEach(item => { item.name = safeStr(item.name); item.section = itemSection(item.name); });
-  // Fresh herb/produce detection — these always go on the shopping list
-  // regardless of pantry staple status
-  const FRESH_SIGNALS = /\b(fresh|juice|zest|leaves|sprig|bunch|head|whole|clove)\b/i;
+  // Fresh produce detection — must have the word "fresh" OR be a whole produce item
+  // "juice" and "zest" alone do NOT override pantry status (could be bottled)
+  const FRESH_SIGNALS = /\bfresh\b/i;
+  const PRODUCE_SIGNALS = /\b(sprig|bunch|bundle|head|stalk|clove)\b/i;
   const DRIED_SIGNALS = /\b(dried|ground|powder|seasoning|mix|extract|flakes)\b/i;
 
   // Filter excluded items; filter pantry staples unless marked Low or fresh
@@ -3324,8 +3356,10 @@ function renderShoppingList() {
     if (i.source === 'manual') return true; // never filter manual items
     const iName = safeStr(i.name);
 
-    // Fresh ingredients always go on the list — never pantry filtered
-    if (FRESH_SIGNALS.test(iName) && !DRIED_SIGNALS.test(iName)) return true;
+    // Fresh ingredients always go on the list — only when "fresh" is explicit
+    // or item is a whole produce item (bunch, sprig, head etc)
+    const isFresh = (FRESH_SIGNALS.test(iName) || PRODUCE_SIGNALS.test(iName)) && !DRIED_SIGNALS.test(iName);
+    if (isFresh) return true;
 
     // Check if item is in pantryStaples — exact match first, then case-insensitive
     const isStaple = pantryStaples.has(iName) || [...pantryStaples].some(s => {
@@ -4173,6 +4207,7 @@ function openAdmin() {
   renderAdminExcluded();
   updateAdminCounts();
   loadApiKeyStatus();
+  populateAdminRecipeSelect();
   document.getElementById('admin-overlay').style.display = 'block';
 }
 
@@ -4204,6 +4239,37 @@ function loadApiKeyStatus() {
   const proxy = localStorage.getItem('nixon_proxy_url') || '';
   const pStatus = document.getElementById('proxy-url-status');
   if (pStatus) pStatus.textContent = proxy ? '✅ Proxy set: ' + proxy.substring(0,40) + '...' : 'No proxy set — required for iPhone Safari';
+}
+
+function quickEditRecipe() {
+  const sel = document.getElementById('admin-recipe-quick-select');
+  const name = sel.value;
+  if (!name) return;
+  // Determine category
+  let cat = 'main';
+  if (SIDE_RECIPES[name]) cat = 'side';
+  else if (DESSERTS[name]) cat = 'dessert';
+  openRecipeAdmin(name, cat);
+}
+
+function populateAdminRecipeSelect() {
+  const sel = document.getElementById('admin-recipe-quick-select');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Select a recipe to edit —</option>';
+  const allRecipes = [
+    ...Object.keys(RECIPES).map(n => ({n, cat:'Main'})),
+    ...Object.keys(SIDE_RECIPES).map(n => ({n, cat:'Side'})),
+    ...Object.keys(DESSERTS).map(n => ({n, cat:'Dessert'})),
+  ].sort((a,b) => a.n.localeCompare(b.n));
+  allRecipes.forEach(({n, cat}) => {
+    const opt = document.createElement('option');
+    opt.value = n;
+    opt.textContent = n + ' (' + cat + ')';
+    sel.appendChild(opt);
+  });
+  // Update count
+  const countEl = document.getElementById('admin-count-recipes');
+  if (countEl) countEl.textContent = allRecipes.length + ' recipes';
 }
 
 function updateAdminCounts() {
@@ -4792,6 +4858,16 @@ function openSidesViewer(mealIndex) {
   document.getElementById('recipe-content').innerHTML = html;
   // Hide serving scaler for sides viewer
   document.querySelector('.scaler-row').style.display = 'none';
+  // Add edit button to recipe modal header
+  const editBtnContainer = document.getElementById('recipe-edit-btn-container');
+  if (editBtnContainer) {
+    editBtnContainer.innerHTML = '';
+    const editBtn = document.createElement('button');
+    editBtn.style.cssText = 'background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--text2);cursor:pointer;';
+    editBtn.textContent = '✏️ Edit';
+    editBtn.onclick = () => { closeModal('recipe-modal'); openRecipeAdmin(document.getElementById('recipe-title').textContent, 'side'); };
+    editBtnContainer.appendChild(editBtn);
+  }
   document.getElementById('recipe-modal').classList.add('open');
 }
 
@@ -4799,6 +4875,249 @@ function openSidesViewer(mealIndex) {
 function restoreScalerForRecipe() {
   const scalerRow = document.querySelector('.scaler-row');
   if (scalerRow) scalerRow.style.display = '';
+}
+
+
+
+// ── RECIPE ADMIN ─────────────────────────────────────────────────────────────
+let raCategory = 'main';
+let raEditingName = null; // null = new recipe, string = editing existing
+
+function openRecipeAdmin(prefillName, prefillCategory) {
+  raCategory = prefillCategory || 'main';
+  raEditingName = null;
+  clearRAForm();
+  populateRASelect();
+
+  // Set category buttons
+  document.querySelectorAll('.ra-cat-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.cat === raCategory);
+  });
+
+  // If prefill name provided, load that recipe
+  if (prefillName) {
+    raEditingName = prefillName;
+    document.getElementById('ra-existing-select').value = prefillName;
+    loadRAExisting();
+  }
+
+  updateRAMetaVisibility();
+  document.getElementById('recipe-admin-modal').classList.add('open');
+}
+
+function setRACategory(cat, btn) {
+  raCategory = cat;
+  document.querySelectorAll('.ra-cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  populateRASelect();
+  updateRAMetaVisibility();
+}
+
+function updateRAMetaVisibility() {
+  const metaSection = document.getElementById('ra-meta-section');
+  // Show prep/cost for meal types, hide for sides/desserts
+  metaSection.style.display = ['main','breakfast','lunch'].includes(raCategory) ? 'block' : 'none';
+}
+
+function populateRASelect() {
+  const sel = document.getElementById('ra-existing-select');
+  sel.innerHTML = '<option value="">— Select existing to edit —</option>';
+
+  let names = [];
+  if (raCategory === 'main') {
+    names = Object.keys(RECIPES).sort();
+  } else if (raCategory === 'side') {
+    names = Object.keys(SIDE_RECIPES).sort();
+  } else if (raCategory === 'dessert') {
+    names = Object.keys(DESSERTS).sort();
+  } else if (raCategory === 'breakfast' || raCategory === 'lunch') {
+    // Future meal types — show MEALS filtered by mealType
+    names = MEALS.filter(m => m.mealType === raCategory).map(m => m.name).sort();
+  }
+
+  names.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  });
+}
+
+function loadRAExisting() {
+  const sel = document.getElementById('ra-existing-select');
+  const name = sel.value;
+  if (!name) { clearRAForm(); return; }
+
+  raEditingName = name;
+  document.getElementById('ra-name').value = name;
+  document.getElementById('ra-modal-title').textContent = 'Edit Recipe';
+
+  let recipe = null;
+  if (raCategory === 'main') recipe = RECIPES[name];
+  else if (raCategory === 'side') recipe = SIDE_RECIPES[name];
+  else if (raCategory === 'dessert') recipe = DESSERTS[name];
+
+  if (!recipe) return;
+
+  // Load prep/cost for mains
+  if (recipe.prep) document.getElementById('ra-prep').value = recipe.prep;
+  if (recipe.cost) document.getElementById('ra-cost').value = recipe.cost;
+
+  // Load ingredients
+  const ingList = document.getElementById('ra-ingredients-list');
+  ingList.innerHTML = '';
+  (recipe.ingredients || []).forEach(ing => {
+    const qty = typeof ing === 'object' ? (ing.qty || '') : '';
+    const unit = typeof ing === 'object' ? (ing.unit || '') : '';
+    const name = typeof ing === 'object' ? (ing.name || '') : String(ing);
+    addRAIngredientRow(qty, unit, name);
+  });
+
+  // Load steps
+  const stepsList = document.getElementById('ra-steps-list');
+  stepsList.innerHTML = '';
+  if (recipe.mainNote) {
+    addRAStepRow(recipe.mainNote);
+  } else {
+    (recipe.steps || []).forEach(step => addRAStepRow(step));
+  }
+
+  // Load notes
+  document.getElementById('ra-notes').value = recipe.notes || '';
+}
+
+function clearRAForm() {
+  raEditingName = null;
+  document.getElementById('ra-modal-title').textContent = 'Add / Edit Recipe';
+  document.getElementById('ra-existing-select').value = '';
+  document.getElementById('ra-name').value = '';
+  document.getElementById('ra-prep').value = 'Q';
+  document.getElementById('ra-cost').value = '$';
+  document.getElementById('ra-ingredients-list').innerHTML = '';
+  document.getElementById('ra-steps-list').innerHTML = '';
+  document.getElementById('ra-notes').value = '';
+  document.getElementById('ra-status').textContent = '';
+  // Add one empty row of each
+  addRAIngredient();
+  addRAStep();
+}
+
+function addRAIngredient(qty, unit, name) {
+  addRAIngredientRow(qty || '', unit || '', name || '');
+}
+
+function addRAIngredientRow(qty, unit, name) {
+  const list = document.getElementById('ra-ingredients-list');
+  const row = document.createElement('div');
+  row.className = 'ra-ing-row';
+  row.innerHTML = `
+    <input type="number" min="0" step="0.25" placeholder="Qty" value="${qty}" style="width:60px;">
+    <input type="text" placeholder="Unit" value="${unit}" style="width:70px;">
+    <input type="text" placeholder="Ingredient name" value="${name}" style="flex:1;">
+    <button class="ra-remove-btn" onclick="this.closest('.ra-ing-row').remove()">✕</button>`;
+  list.appendChild(row);
+  row.querySelector('input:last-of-type').focus();
+}
+
+function addRAStep(text) {
+  addRAStepRow(text || '');
+}
+
+function addRAStepRow(text) {
+  const list = document.getElementById('ra-steps-list');
+  const stepNum = list.children.length + 1;
+  const row = document.createElement('div');
+  row.className = 'ra-step-row';
+  row.innerHTML = `
+    <div class="ra-step-num">${stepNum}</div>
+    <textarea placeholder="Step ${stepNum}...">${text}</textarea>
+    <button class="ra-remove-btn" onclick="this.closest('.ra-step-row').remove();renumberRASteps()">✕</button>`;
+  list.appendChild(row);
+}
+
+function renumberRASteps() {
+  document.querySelectorAll('.ra-step-num').forEach((el, i) => {
+    el.textContent = i + 1;
+  });
+}
+
+function saveRARecipe() {
+  const name = document.getElementById('ra-name').value.trim();
+  if (!name) {
+    document.getElementById('ra-status').textContent = '⚠️ Please enter a recipe name';
+    return;
+  }
+
+  // Collect ingredients
+  const ingredients = [];
+  document.querySelectorAll('.ra-ing-row').forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const qty = parseFloat(inputs[0].value) || null;
+    const unit = inputs[1].value.trim();
+    const ingName = inputs[2].value.trim();
+    if (ingName) ingredients.push({ qty, unit, name: ingName });
+  });
+
+  // Collect steps
+  const steps = [];
+  document.querySelectorAll('.ra-step-row textarea').forEach(ta => {
+    const s = ta.value.trim();
+    if (s) steps.push(s);
+  });
+
+  const notes = document.getElementById('ra-notes').value.trim();
+
+  const recipe = {
+    serves: 6,
+    tier: steps.length > 0 ? 1 : 2,
+    ingredients,
+    steps,
+    notes: notes || null,
+  };
+
+  // Save to correct data store
+  if (raCategory === 'main' || raCategory === 'breakfast' || raCategory === 'lunch') {
+    const prep = document.getElementById('ra-prep').value;
+    const cost = document.getElementById('ra-cost').value;
+    recipe.prep = prep;
+    recipe.cost = cost;
+    RECIPES[name] = recipe;
+
+    // If new meal, add to MEALS array
+    const existingMeal = MEALS.find(m => m.name === name);
+    if (!existingMeal) {
+      MEALS.push({
+        name, prep, cost,
+        mealType: raCategory,
+        tier: recipe.tier,
+        sides: [],
+        shake: 'auto',
+        isLeftover: false,
+      });
+    } else {
+      existingMeal.prep = prep;
+      existingMeal.cost = cost;
+    }
+  } else if (raCategory === 'side') {
+    SIDE_RECIPES[name] = recipe;
+    // Also update SIDE_INGREDIENTS if ingredients provided
+    if (ingredients.length > 0) {
+      SIDE_INGREDIENTS[name] = ingredients.map(i => i.name);
+    }
+  } else if (raCategory === 'dessert') {
+    DESSERTS[name] = recipe;
+  }
+
+  // Save to localStorage
+  saveState();
+  populateRASelect();
+  document.getElementById('ra-status').textContent = '✅ ' + name + ' saved!';
+  document.getElementById('ra-status').style.color = 'var(--accent2)';
+
+  // If it's a new meal, refresh the plan UI
+  if (raCategory === 'main') {
+    renderSuggestion();
+  }
 }
 
 
@@ -5115,6 +5434,87 @@ renderHistory();
   </div>
 </div>
 
+<!-- RECIPE ADMIN MODAL -->
+<div class="modal-overlay" id="recipe-admin-modal" onclick="if(event.target===this)closeModal('recipe-admin-modal')">
+  <div class="modal" onclick="event.stopPropagation()" style="max-height:92vh;overflow-y:auto;">
+    <div class="modal-handle"></div>
+    <h2 class="modal-title" id="ra-modal-title">Add / Edit Recipe</h2>
+
+    <!-- Category tabs -->
+    <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+      <button class="ra-cat-btn active" data-cat="main" onclick="setRACategory('main',this)">🍽️ Main</button>
+      <button class="ra-cat-btn" data-cat="side" onclick="setRACategory('side',this)">🥗 Side</button>
+      <button class="ra-cat-btn" data-cat="dessert" onclick="setRACategory('dessert',this)">🍨 Dessert</button>
+      <button class="ra-cat-btn" data-cat="breakfast" onclick="setRACategory('breakfast',this)">🥞 Breakfast</button>
+      <button class="ra-cat-btn" data-cat="lunch" onclick="setRACategory('lunch',this)">🥪 Lunch</button>
+    </div>
+
+    <!-- Meal selector / name -->
+    <div style="margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:6px;">Recipe Name</div>
+      <div style="display:flex;gap:6px;">
+        <select id="ra-existing-select" style="flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;" onchange="loadRAExisting()">
+          <option value="">— Select existing to edit —</option>
+        </select>
+        <button onclick="clearRAForm()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;cursor:pointer;white-space:nowrap;color:var(--text2);">+ New</button>
+      </div>
+      <input id="ra-name" class="add-input" placeholder="Recipe name" style="margin-top:8px;width:100%;box-sizing:border-box;">
+    </div>
+
+    <!-- Prep & Cost (main/breakfast/lunch only) -->
+    <div id="ra-meta-section" style="margin-bottom:12px;">
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:6px;">Prep Time</div>
+          <select id="ra-prep" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;">
+            <option value="Q">Quick (under 30 min)</option>
+            <option value="M">Medium (30-60 min)</option>
+            <option value="S">Slow (60+ min)</option>
+          </select>
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:6px;">Cost</div>
+          <select id="ra-cost" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;">
+            <option value="$">$ (under $15)</option>
+            <option value="$$">$$ ($15-30)</option>
+            <option value="$$$">$$$ (over $30)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ingredients -->
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);">Ingredients</div>
+        <button onclick="addRAIngredient()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:500;cursor:pointer;">+ Add</button>
+      </div>
+      <div id="ra-ingredients-list"></div>
+    </div>
+
+    <!-- Steps -->
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);">Instructions</div>
+        <button onclick="addRAStep()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:500;cursor:pointer;">+ Add step</button>
+      </div>
+      <div id="ra-steps-list"></div>
+    </div>
+
+    <!-- Notes -->
+    <div style="margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:6px;">Notes <span style="font-weight:400;color:var(--text3);">(optional)</span></div>
+      <textarea id="ra-notes" style="width:100%;min-height:70px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Tips, substitutions, variations..."></textarea>
+    </div>
+
+    <div style="display:flex;gap:8px;">
+      <button class="btn-skip" style="flex:1;" onclick="closeModal('recipe-admin-modal')">Cancel</button>
+      <button class="btn-accept" style="flex:1;" onclick="saveRARecipe()">Save Recipe</button>
+    </div>
+    <div id="ra-status" style="font-size:13px;color:var(--accent2);text-align:center;margin-top:8px;min-height:20px;"></div>
+  </div>
+</div>
+
 <!-- VIEW QTY MODAL -->
 <div class="modal-overlay" id="viewqty-modal" onclick="closeModal('viewqty-modal')">
   <div class="modal" onclick="event.stopPropagation()">
@@ -5133,6 +5533,34 @@ renderHistory();
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border);margin-bottom:16px;position:sticky;top:0;background:var(--bg);z-index:1;">
       <h2 style="font-size:20px;">⚙️ Settings</h2>
       <button onclick="closeAdmin()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text2);">✕</button>
+    </div>
+
+    <!-- SECTION: Recipe Admin -->
+    <div class="admin-section">
+      <div class="admin-section-header" onclick="toggleAdminSection(this)">
+        <span class="admin-section-title">Recipe Library</span>
+        <div class="admin-section-meta">
+          <span class="admin-section-count" id="admin-count-recipes"></span>
+          <span class="admin-section-chevron">▾</span>
+        </div>
+      </div>
+      <div class="admin-section-body" style="display:none;">
+        <p class="admin-section-desc">Add new recipes or edit existing ones. Changes save immediately.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+          <button class="admin-add-btn" onclick="openRecipeAdmin(null,'main')">＋ New Main</button>
+          <button class="admin-add-btn" onclick="openRecipeAdmin(null,'side')">＋ New Side</button>
+          <button class="admin-add-btn" onclick="openRecipeAdmin(null,'dessert')">＋ New Dessert</button>
+          <button class="admin-add-btn" onclick="openRecipeAdmin(null,'breakfast')">＋ New Breakfast</button>
+          <button class="admin-add-btn" onclick="openRecipeAdmin(null,'lunch')">＋ New Lunch</button>
+        </div>
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:6px;">Edit Existing</div>
+        <div style="display:flex;gap:6px;">
+          <select id="admin-recipe-quick-select" style="flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;">
+            <option value="">— Select a recipe to edit —</option>
+          </select>
+          <button onclick="quickEditRecipe()" style="background:var(--accent);color:white;border:none;border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;cursor:pointer;">Edit</button>
+        </div>
+      </div>
     </div>
 
     <!-- SECTION: Store Layout -->
