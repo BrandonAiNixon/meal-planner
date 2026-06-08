@@ -2033,7 +2033,8 @@ function renderWeek() {
 
     const busyHTML = day.busy ? `<div class="busy-row"><div class="busy-dot"></div><span class="busy-text">Busy evening — quick meal assigned</span></div>` : '';
 
-    const sidesStr = (meal.sides && meal.sides.length > 0) ? meal.sides.join(' · ') : '';
+    const effectiveSides = day.customSides || meal.sides || [];
+    const sidesStr = effectiveSides.length > 0 ? effectiveSides.join(' · ') : '';
     const hasShake = SHAKE_PAIRINGS[meal.name];
     const shakeRating = hasShake ? (hasShake.rating === 'hit' ? '✅' : hasShake.rating === 'testing' ? '⏳' : '') : '';
     const mealHTML = `<div class="day-meal">
@@ -3167,8 +3168,9 @@ function buildShoppingList() {
     });
 
     // Always process sides via SIDE_INGREDIENTS
-    // STRUCTURED_MEALS handles main course ingredients; sides are always separate
-    (meal.sides || []).forEach(side => {
+    // Use customSides if the day has them (from composer), else meal defaults
+    const daySides = day ? (day.customSides || meal.sides || []) : (meal.sides || []);
+    daySides.forEach(side => {
       (SIDE_INGREDIENTS[side] || []).forEach(ing => {
         const ingStr = typeof ing === 'object' ? ing.name : String(ing);
         if ([...excludedItems].some(ex => ingStr.toLowerCase() === ex.toLowerCase())) return;
@@ -4749,7 +4751,9 @@ function openComposerDayPicker() {
 // ── SIDES VIEWER ──────────────────────────────────────────────────────────────
 function openSidesViewer(mealIndex) {
   const meal = MEALS[mealIndex];
-  const sides = meal.sides || [];
+  // Check if this day has custom sides from the composer
+  const day = weekPlan.find(d => !d.isSunday && d.mealIndex === mealIndex);
+  const sides = (day && day.customSides) ? day.customSides : (meal.sides || []);
   if (sides.length === 0) return;
 
   // Build content for recipe modal reuse
