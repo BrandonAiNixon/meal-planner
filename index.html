@@ -317,7 +317,10 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
 <div class="screen pb" id="screen-shopping">
   <div class="shop-header">
     <h2>HEB List</h2>
-    <button class="btn-generate" onclick="buildShoppingList();saveState();">↻ Rebuild</button>
+    <div style="display:flex;gap:6px;">
+      <button class="btn-generate" onclick="buildShoppingList();saveState();">↻ Rebuild</button>
+      <button class="btn-generate" style="background:var(--accent2);color:white;border:none;" onclick="doneShopping()">✅ Done</button>
+    </div>
   </div>
   <p class="shop-meta" id="shop-meta">North Woodlands Market · <span id="item-count">0</span> items</p>
 
@@ -1772,10 +1775,34 @@ let completedOpen = false;
 // ── WEEK GENERATOR ────────────────────────────────────────────────────────────
 function cycleStaple(item) {
   const current = pantryState[item] || 'unknown';
-  pantryState[item] = current === 'unknown' ? 'stocked' : current === 'stocked' ? 'low' : 'unknown';
+  const next = current === 'unknown' ? 'stocked' : current === 'stocked' ? 'low' : 'unknown';
+  pantryState[item] = next;
   saveState();
-  // Rebuild shopping list — it will automatically include low pantry staples
-  buildShoppingList();
+
+  if (next === 'low') {
+    // Add to shopping list without rebuilding — preserves all checked/cart state
+    const key = item.toLowerCase().replace(/[^a-z]/g,'');
+    const alreadyOnList = shoppingItems.some(i => safeStr(i.name).toLowerCase().replace(/[^a-z]/g,'') === key);
+    if (!alreadyOnList) {
+      const section = itemSection(item);
+      shoppingItems.push({
+        name: item,
+        qty: null, unit: '',
+        section: section !== 'Pantry Staple' ? section : 'Needs Aisle',
+        checked: false,
+        source: 'pantry',
+      });
+    }
+    renderShoppingList();
+  } else {
+    // Remove from shopping list without rebuilding
+    shoppingItems = shoppingItems.filter(i => {
+      const n = safeStr(i.name).toLowerCase().replace(/[^a-z]/g,'');
+      const k = item.toLowerCase().replace(/[^a-z]/g,'');
+      return !(i.source === 'pantry' && n === k);
+    });
+    renderShoppingList();
+  }
   renderPantry();
 }
 
@@ -4898,6 +4925,28 @@ function restoreScalerForRecipe() {
 }
 
 
+
+// ── SHOPPING COMPLETE ────────────────────────────────────────────────────────────
+function doneShopping() {
+  // Show confirmation
+  const confirmed = confirm('Mark shopping as complete? This will clear all checked (In Cart) items and manually added items. Your meal plan and pantry stay intact.');
+  if (!confirmed) return;
+
+  // Remove checked items and manual items — keep meal-plan items unchecked for next week
+  shoppingItems = shoppingItems.filter(i => !i.checked && i.source !== 'manual');
+
+  // Reset pantry low items that were on the list back to stocked
+  shoppingItems.forEach(i => {
+    if (i.source === 'pantry') {
+      pantryState[safeStr(i.name)] = 'stocked';
+    }
+  });
+  shoppingItems = shoppingItems.filter(i => i.source !== 'pantry');
+
+  saveState();
+  renderShoppingList();
+  renderPantry();
+}
 
 // ── RECIPE ADMIN ─────────────────────────────────────────────────────────────
 let raCategory = 'main';
