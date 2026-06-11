@@ -3640,6 +3640,7 @@ function addPantryStaple() {
 function renderPantryStaplesList() {
   const container = document.getElementById('pantry-staples-list');
   if (!container) return;
+  // Show all pantry staples — "Used This Week" section handles the weekly subset
   const items = [...pantryStaples].sort();
   if (items.length === 0) {
     container.innerHTML = '<p style="font-size:13px;color:var(--text3);padding:8px 0;">No items added yet. Tap 🏠 on any shopping list item to add it here.</p>';
@@ -3726,76 +3727,95 @@ function getPantryStapleItems() {
 
 function renderPantry() {
   renderPantryStaplesList();
-  // Build weekly staples by cross-referencing ALL meal ingredients with pantryStaples
-  const recipeTaggedStaples = window._weeklyStaples || [];
-  const crossRefStaples = new Set(recipeTaggedStaples);
-  // Check every ingredient in this week's meals against pantryStaples
+
+  // ── Build "Used This Week" ──────────────────────────────────────────────
+  // Collect ALL ingredients used this week: meals + shakes
+  const usedIngredients = new Set();
+
   weekPlan.forEach(day => {
     if (day.isSunday || day.mealIndex < 0) return;
     const meal = MEALS[day.mealIndex];
+
+    // Meal ingredients from STRUCTURED_MEALS
     const structured = STRUCTURED_MEALS[meal.name];
     if (structured) {
       (structured.ingredients || []).forEach(ing => {
-        const ingName = safeStr(typeof ing === 'object' ? ing.name : ing);
-        // Check if this ingredient matches any pantry staple
-        pantryStaples.forEach(staple => {
-          if (ingName.toLowerCase().includes(staple.toLowerCase()) ||
-              staple.toLowerCase().includes(ingName.toLowerCase())) {
-            crossRefStaples.add(staple);
-          }
-        });
+        const n = safeStr(typeof ing === 'object' ? ing.name : ing);
+        if (n) usedIngredients.add(n.toLowerCase());
+      });
+    }
+
+    // Side ingredients
+    const sides = day.customSides || meal.sides || [];
+    sides.forEach(side => {
+      (SIDE_INGREDIENTS[side] || []).forEach(ing => {
+        usedIngredients.add(safeStr(ing).toLowerCase());
+      });
+    });
+
+    // Shake ingredients
+    const shake = SHAKE_PAIRINGS[meal.name];
+    if (shake && shake.ingredients) {
+      shake.ingredients.forEach(ing => {
+        const n = safeStr(typeof ing === 'object' ? ing.name : ing);
+        if (n) usedIngredients.add(n.toLowerCase());
       });
     }
   });
-  const staples = [...crossRefStaples];
+
+  // Find pantry staples that are actually used this week
+  // Use strict matching — staple name must closely match an ingredient
+  const usedThisWeek = [...pantryStaples].filter(staple => {
+    const sl = staple.toLowerCase();
+    return [...usedIngredients].some(ing => {
+      // Exact match or staple is a significant part of the ingredient
+      return ing === sl ||
+        (sl.length >= 4 && ing.includes(sl) && sl.length >= ing.length * 0.5) ||
+        (sl.length >= 4 && sl.includes(ing) && ing.length >= sl.length * 0.5);
+    });
+  }).sort();
+
   const staplesSection = document.getElementById('weekly-staples-section');
   const staplesList = document.getElementById('weekly-staples-list');
-  if (staplesSection && staplesList) {
-    // Merge recipe staples + user-marked pantry staples
-  const pantryStapleItems = getPantryStapleItems();
-  const allStaples = [...new Set([...staples, ...pantryStapleItems])].sort();
 
-  if (allStaples.length > 0) {
-    staplesSection.style.display = 'block';
-    staplesList.innerHTML = '';
-    allStaples.forEach(s => {
-      if (pantryState['_dismiss_' + s]) return; // user dismissed this item
-      const status = pantryState[s] || 'unknown';
-      const isPantryStaple = pantryStapleItems.includes(s);
-      const color = status === 'stocked' ? 'var(--accent2)' : status === 'low' ? 'var(--amber)' : 'var(--text3)';
-      const label = status === 'stocked' ? '✅ Stocked' : status === 'low' ? '⚠️ Low' : '? Check pantry';
-      const tag = isPantryStaple ? '<span style="font-size:10px;background:var(--blue-light);color:var(--blue);border-radius:20px;padding:2px 6px;margin-left:6px;">always in</span>' : '';
-      const safeName = s.replace(/'/g,"\'");
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:0.5px solid var(--border);';
-      row.innerHTML = `
-        <span style="font-size:13px;flex:1;">${s}${tag}</span>
-        <button onclick="cycleStaple('${safeName}');renderPantry();"
-          style="font-size:11px;color:${color};background:none;border:1px solid ${color};border-radius:20px;padding:3px 10px;cursor:pointer;white-space:nowrap;">${label}</button>
-        ${!isPantryStaple ? `<button onclick="pantryState['_dismiss_${safeName}']=true;saveState();this.closest('div').remove();"
-          style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;" title="Remove from this list">✕</button>` : ''}`;
-      staplesList.appendChild(row);
-    });
-  } else {
-    staplesSection.style.display = 'none';
+  if (staplesSection && staplesList) {
+    if (usedThisWeek.length > 0) {
+      staplesSection.style.display = 'block';
+      staplesList.innerHTML = '';
+      usedThisWeek.forEach(s => {
+        if (pantryState['_dismiss_' + s]) return;
+        const status = pantryState[s] || 'unknown';
+        const color = status === 'stocked' ? 'var(--accent2)' : status === 'low' ? 'var(--amber)' : 'var(--text3)';
+        const label = status === 'stocked' ? '✅ Stocked' : status === 'low' ? '⚠️ Low — on list' : '? Check pantry';
+        const safeName = s.replace(/'/g, "\'");
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:0.5px solid var(--border);';
+        // Build row using DOM to avoid quote escaping issues
+        const nameSpan = document.createElement('span');
+        nameSpan.style.cssText = 'font-size:13px;flex:1;';
+        nameSpan.textContent = s;
+        const cycleBtn = document.createElement('button');
+        cycleBtn.style.cssText = 'font-size:11px;color:' + color + ';background:none;border:1px solid ' + color + ';border-radius:20px;padding:3px 10px;cursor:pointer;white-space:nowrap;';
+        cycleBtn.textContent = label;
+        cycleBtn.onclick = () => { cycleStaple(s); renderPantry(); };
+        const dismissBtn = document.createElement('button');
+        dismissBtn.style.cssText = 'background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;';
+        dismissBtn.title = 'Dismiss';
+        dismissBtn.textContent = '✕';
+        dismissBtn.onclick = () => { pantryState['_dismiss_' + s] = true; saveState(); row.remove(); };
+        row.appendChild(nameSpan);
+        row.appendChild(cycleBtn);
+        row.appendChild(dismissBtn);
+        staplesList.appendChild(row);
+      });
+    } else {
+      staplesSection.style.display = 'none';
+    }
   }
-  }
-  // Old PANTRY_ITEMS grid removed — items managed via Always in House section
+
+  // Hide old grid
   const grid = document.getElementById('pantry-grid');
   if (grid) grid.style.display = 'none';
-  if (false) PANTRY_ITEMS.forEach(item => {
-    const status = pantryState[item] || 'unknown';
-    const el = document.createElement('div');
-    el.className = 'pantry-item' + (status === 'stocked' ? ' stocked' : status === 'low' ? ' low' : '');
-    el.innerHTML = `<div class="pantry-dot"></div><span class="pantry-name">${item}</span>`;
-    el.onclick = () => {
-      const current = pantryState[item] || 'unknown';
-      pantryState[item] = current === 'unknown' ? 'stocked' : current === 'stocked' ? 'low' : 'unknown';
-      renderPantry();
-      saveState();
-    };
-    grid.appendChild(el);
-  });
 }
 
 // ── NEW MEAL SUGGESTION ───────────────────────────────────────────────────────
@@ -4952,7 +4972,12 @@ function confirmDoneShopping() {
   const banner = document.getElementById('done-shopping-confirm');
   if (banner) banner.remove();
 
-  // Reset pantry low items back to stocked
+  // Mark ALL pantry staples as stocked — shopping is done, everything is restocked
+  pantryStaples.forEach(staple => {
+    pantryState[staple] = 'stocked';
+  });
+
+  // Also mark any pantry-sourced list items as stocked
   shoppingItems.forEach(i => {
     if (i.source === 'pantry') pantryState[safeStr(i.name)] = 'stocked';
   });
