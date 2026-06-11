@@ -4928,20 +4928,37 @@ function restoreScalerForRecipe() {
 
 // ── SHOPPING COMPLETE ────────────────────────────────────────────────────────────
 function doneShopping() {
-  // Show confirmation
-  const confirmed = confirm('Mark shopping as complete? This will clear all checked (In Cart) items and manually added items. Your meal plan and pantry stay intact.');
-  if (!confirmed) return;
+  // Show inline confirmation banner instead of confirm() which is blocked
+  const existing = document.getElementById('done-shopping-confirm');
+  if (existing) { existing.remove(); return; }
 
-  // Remove checked items and manual items — keep meal-plan items unchecked for next week
-  shoppingItems = shoppingItems.filter(i => !i.checked && i.source !== 'manual');
+  const banner = document.createElement('div');
+  banner.id = 'done-shopping-confirm';
+  banner.style.cssText = 'background:var(--accent2);color:white;padding:12px 16px;margin-bottom:8px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:space-between;gap:10px;';
+  banner.innerHTML = '<span style="font-size:13px;flex:1;">Clear cart and manual items?</span>'
+    + '<button onclick="confirmDoneShopping()" style="background:white;color:var(--accent2);border:none;border-radius:6px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;">Yes, done</button>'
+    + '<button onclick="cancelDoneShopping()" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer;">Cancel</button>';
 
-  // Reset pantry low items that were on the list back to stocked
+  const shopSections = document.getElementById('shop-sections');
+  shopSections.parentNode.insertBefore(banner, shopSections);
+}
+
+function cancelDoneShopping() {
+  const b = document.getElementById('done-shopping-confirm');
+  if (b) b.remove();
+}
+
+function confirmDoneShopping() {
+  const banner = document.getElementById('done-shopping-confirm');
+  if (banner) banner.remove();
+
+  // Reset pantry low items back to stocked
   shoppingItems.forEach(i => {
-    if (i.source === 'pantry') {
-      pantryState[safeStr(i.name)] = 'stocked';
-    }
+    if (i.source === 'pantry') pantryState[safeStr(i.name)] = 'stocked';
   });
-  shoppingItems = shoppingItems.filter(i => i.source !== 'pantry');
+
+  // Remove checked items, manual items, and pantry items
+  shoppingItems = shoppingItems.filter(i => !i.checked && i.source !== 'manual' && i.source !== 'pantry');
 
   saveState();
   renderShoppingList();
