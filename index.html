@@ -2573,7 +2573,7 @@ function openRecipe(mealIndex) {
     const editBtn = document.createElement('button');
     editBtn.style.cssText = 'background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--text2);cursor:pointer;';
     editBtn.textContent = '✏️ Edit';
-    editBtn.onclick = () => { closeModal('recipe-modal'); openRecipeAdmin(meal.name, meal.mealType || 'main'); };
+    editBtn.onclick = () => { closeModal('recipe-modal'); setTimeout(() => openRecipeAdmin(meal.name, meal.mealType || 'main'), 100); };
     editBtnContainer.appendChild(editBtn);
   }
   const meal = MEALS[mealIndex];
@@ -4105,19 +4105,36 @@ function openIngredientSource(item) {
       </div>
     </div>`;
   } else if (source === 'side') {
-    // From a side dish — find which meals use this side
-    const mealsWithSide = MEALS.filter(m =>
-      (m.sides || []).some(s => itemSection(s) && s.toLowerCase().includes(item.name.toLowerCase().substring(0,5)))
-    ).map(m => m.name);
-    html += `<div style="padding:12px 14px;">
-      <div style="font-size:13px;font-weight:500;margin-bottom:8px;">Side dish ingredient</div>`;
-    if (mealsWithSide.length > 0) {
-      mealsWithSide.forEach(mealName => {
-        html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-top:0.5px solid var(--border);">
-          <span style="font-size:14px;">🍽️</span>
-          <span style="font-size:13px;">${mealName}</span>
-        </div>`;
+    // Find which meals THIS WEEK use a side that contains this ingredient
+    const nameLower = safeStr(item.name).toLowerCase();
+    const sources = [];
+    weekPlan.forEach(day => {
+      if (day.isSunday || day.mealIndex < 0) return;
+      const meal = MEALS[day.mealIndex];
+      const sides = day.customSides || meal.sides || [];
+      sides.forEach(side => {
+        const sideIngs = SIDE_INGREDIENTS[side] || [];
+        const found = sideIngs.some(ing => {
+          const ingLower = safeStr(ing).toLowerCase();
+          return ingLower.includes(nameLower) || nameLower.includes(ingLower.split(' ')[0]);
+        });
+        if (found) {
+          const dayName = DAYS[day.date.getDay()];
+          sources.push({ meal: meal.name, side, day: dayName });
+        }
       });
+    });
+    html += '<div style="padding:12px 14px;"><div style="font-size:13px;font-weight:500;margin-bottom:8px;">Side dish ingredient</div>';
+    if (sources.length > 0) {
+      sources.forEach((s, i) => {
+        const isLast = i === sources.length - 1;
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;' + (i > 0 ? 'border-top:0.5px solid var(--border);' : '') + '">'
+          + '<span style="font-size:14px;">🍽️</span>'
+          + '<div><div style="font-size:13px;font-weight:500;">' + s.meal + '</div>'
+          + '<div style="font-size:11px;color:var(--text3);">Side: ' + s.side + ' · ' + s.day + '</div></div></div>';
+      });
+    } else {
+      html += '<div style="font-size:13px;color:var(--text2);">Side dish ingredient this week</div>';
     }
     html += '</div>';
   } else if (source === 'pantry') {
@@ -4158,19 +4175,16 @@ function openIngredientSource(item) {
     });
 
     if (sources.length === 0) {
-      html += `<div style="padding:12px 14px;font-size:13px;color:var(--text2);">Part of this week's meal plan</div>`;
+      html += '<div style="padding:12px 14px;font-size:13px;color:var(--text2);">Part of this week&#39;s meal plan</div>';
     } else {
-      sources.forEach((mealName, i) => {
-        const day = weekPlan.find(d => !d.isSunday && d.mealIndex >= 0 && MEALS[d.mealIndex]?.name === mealName);
-        const dayLabel = day ? DAYS[day.date.getDay()] : '';
+      sources.forEach((src, i) => {
         const isLast = i === sources.length - 1;
-        html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;${isLast?'':'border-bottom:0.5px solid var(--border)'}">
-          <span style="font-size:16px;">🍽️</span>
-          <div style="flex:1;">
-            <div style="font-size:13px;font-weight:500;">${mealName}</div>
-            ${dayLabel ? '<div style="font-size:11px;color:var(--text3);margin-top:2px;">' + dayLabel + '</div>' : ''}
-          </div>
-        </div>`;
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;' + (isLast ? '' : 'border-bottom:0.5px solid var(--border)') + '">'
+          + '<span style="font-size:16px;">🍽️</span>'
+          + '<div style="flex:1;">'
+          + '<div style="font-size:13px;font-weight:500;">' + src.meal + '</div>'
+          + (src.day ? '<div style="font-size:11px;color:var(--text3);margin-top:2px;">' + src.day + '</div>' : '')
+          + '</div></div>';
       });
     }
   }
@@ -4997,6 +5011,11 @@ let raEditingName = null; // null = new recipe, string = editing existing
 function openRecipeAdmin(prefillName, prefillCategory) {
   raCategory = prefillCategory || 'main';
   raEditingName = null;
+
+  // Close admin overlay if open so recipe modal can show on top
+  const adminOverlay = document.getElementById('admin-overlay');
+  if (adminOverlay) adminOverlay.style.display = 'none';
+
   clearRAForm();
   populateRASelect();
 
@@ -5014,6 +5033,13 @@ function openRecipeAdmin(prefillName, prefillCategory) {
 
   updateRAMetaVisibility();
   document.getElementById('recipe-admin-modal').classList.add('open');
+}
+
+function closeRAAndReturnToAdmin() {
+  closeModal('recipe-admin-modal');
+  // Reopen admin panel if it was the entry point
+  const adminOverlay = document.getElementById('admin-overlay');
+  if (adminOverlay) adminOverlay.style.display = 'block';
 }
 
 function setRACategory(cat, btn) {
@@ -5229,6 +5255,17 @@ function saveRARecipe() {
   if (raCategory === 'main') {
     renderSuggestion();
   }
+
+  // Reopen admin after a brief delay so user sees the success message
+  setTimeout(() => {
+    closeModal('recipe-admin-modal');
+    const adminOverlay = document.getElementById('admin-overlay');
+    if (adminOverlay) {
+      adminOverlay.style.display = 'block';
+      populateAdminRecipeSelect();
+      updateAdminCounts();
+    }
+  }, 1200);
 }
 
 
@@ -5619,7 +5656,7 @@ renderHistory();
     </div>
 
     <div style="display:flex;gap:8px;">
-      <button class="btn-skip" style="flex:1;" onclick="closeModal('recipe-admin-modal')">Cancel</button>
+      <button class="btn-skip" style="flex:1;" onclick="closeRAAndReturnToAdmin()">Cancel</button>
       <button class="btn-accept" style="flex:1;" onclick="saveRARecipe()">Save Recipe</button>
     </div>
     <div id="ra-status" style="font-size:13px;color:var(--accent2);text-align:center;margin-top:8px;min-height:20px;"></div>
