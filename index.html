@@ -1692,10 +1692,15 @@ function itemSection(name) {
   for (const [key, section] of Object.entries(itemAisleMap)) {
     if (key.toLowerCase() === lower) return section;
   }
-  // 2. Partial match — name contains key or key contains name
+  // 2. Partial match — name contains key or key contains name, as whole
+  // words only. A raw substring check here means excluding "ice" (bagged
+  // ice) also silently resolves "Basmati rice", "Rice", "Price", "Juice",
+  // etc. to the same 'Excluded' aisle, since they all contain "ice" as a
+  // substring — same class of bug already fixed for isExcludedName() on
+  // 2026-07-19, but this separate lookup had its own unguarded check.
   for (const [key, section] of Object.entries(itemAisleMap)) {
     const kl = key.toLowerCase();
-    if (lower.includes(kl) || kl.includes(lower)) return section;
+    if (containsWholeWord(lower, kl) || containsWholeWord(kl, lower)) return section;
   }
   // 3. Keyword fallback for generated shake ingredients
   if (/milk|cream(?! cheese)|half.and.half/.test(lower)) return 'Dairy';
@@ -1810,6 +1815,14 @@ function saveState() {
       mealHistory,
       // Save any meals added at runtime (accepted suggestions, recipe admin additions)
       customMeals: MEALS.filter(m => !m._coded).map(m => ({...m})),
+      // Recipe Admin edits to these were previously never persisted here at all —
+      // they only survived within the current tab's memory until reload, silently
+      // reverting to the coded defaults. Save them the same way shakePairings already was.
+      recipes: RECIPES,
+      sideRecipes: SIDE_RECIPES,
+      sideIngredients: SIDE_INGREDIENTS,
+      structuredMeals: STRUCTURED_MEALS,
+      desserts: DESSERTS,
       shakePairings: SHAKE_PAIRINGS,
       shakeLibraries: Object.fromEntries(MEALS.filter(m => m.shakeLibrary && m.shakeLibrary.length > 0).map(m => [m.name, m.shakeLibrary])),
       itemAisleMap,
@@ -1873,6 +1886,15 @@ function loadState() {
         if (meal) meal.shakeLibrary = lib;
       });
     }
+    // Restore Recipe Admin edits to Main/Side/Dessert recipes and their
+    // shopping-list-driving structured ingredients — these were previously
+    // never saved here at all (only shakePairings was), so any edit made
+    // through Recipe Admin silently reverted to the coded defaults on reload.
+    if (data.recipes) Object.assign(RECIPES, data.recipes);
+    if (data.sideRecipes) Object.assign(SIDE_RECIPES, data.sideRecipes);
+    if (data.sideIngredients) Object.assign(SIDE_INGREDIENTS, data.sideIngredients);
+    if (data.structuredMeals) Object.assign(STRUCTURED_MEALS, data.structuredMeals);
+    if (data.desserts) Object.assign(DESSERTS, data.desserts);
     if (data.itemAisleMap) Object.assign(itemAisleMap, data.itemAisleMap);
     dedupeItemAisleMap();
     dedupePantryStaples();
@@ -3434,6 +3456,7 @@ const STRUCTURED_MEALS = {
       {type:'simple', name:'Butter', qty:2, unit:'tbsp', section:'Dairy'},
       {type:'simple', name:'Fresh cilantro', qty:1, unit:'bunch', section:'Produce'},
       {type:'simple', name:'Yellow rice box', qty:1, unit:'box', section:'Aisle 7'},
+      {type:'simple', name:'Basmati rice', qty:null, unit:'', section:'Aisle 6'},
     ],
   },
   'Beef Bulgogi Bowl': {
@@ -3574,6 +3597,16 @@ function namesLooselyMatch(a, b) {
   return wa.join(' ') === wb.join(' ');
 }
 
+// Whole-word substring match — true if `needle` appears in `haystack` bounded
+// by start/end of string or non-letter characters, so e.g. "ice" doesn't also
+// match inside "Rice", "Juice", or "Iceberg lettuce". Both args expected
+// pre-lowercased by the caller.
+function containsWholeWord(haystack, needle) {
+  if (!haystack || !needle) return false;
+  const re = new RegExp('(^|[^a-z])' + needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-z])', 'i');
+  return re.test(haystack);
+}
+
 // Whole-word match against the exclude list so excluding "ice" (bagged ice)
 // doesn't also swallow "Iceberg lettuce", "Rice", "Juice", etc.
 function isExcludedName(name, excludeSet) {
@@ -3582,8 +3615,7 @@ function isExcludedName(name, excludeSet) {
     const e = String(ex || '').toLowerCase().trim();
     if (!e) return false;
     if (n === e) return true;
-    const re = new RegExp('(^|[^a-z])' + e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-z])', 'i');
-    return re.test(n);
+    return containsWholeWord(n, e);
   });
 }
 
@@ -5699,6 +5731,48 @@ function renumberRASteps() {
   });
 }
 
+// Syncs a recipe's shopping-list-driving STRUCTURED_MEALS ingredients from
+// what was just saved in Recipe Admin. Editing a recipe's ingredients here
+// previously only ever touched RECIPES (the cooking-instructions view) —
+// STRUCTURED_MEALS, which buildShoppingList() actually reads, was never
+// updated, so added/changed ingredients silently never reached the shopping
+// list. Only adds or updates matching entries — never removes an existing
+// structured ingredient that's absent from the form, since STRUCTURED_MEALS
+// can hold 'staple'/'viewqty' entries the admin form doesn't represent at
+// all, so "missing from form" doesn't mean "user wants it gone".
+function syncStructuredMealIngredients(name, formIngredients) {
+  if (!formIngredients || formIngredients.length === 0) return;
+  if (!STRUCTURED_MEALS[name]) {
+    STRUCTURED_MEALS[name] = {
+      serves: 6,
+      ingredients: formIngredients.map(ing => ({
+        type: 'simple',
+        name: ing.name,
+        qty: ing.qty,
+        unit: ing.unit || '',
+        section: itemSection(ing.name),
+      })),
+    };
+    return;
+  }
+  const existing = STRUCTURED_MEALS[name].ingredients || (STRUCTURED_MEALS[name].ingredients = []);
+  formIngredients.forEach(ing => {
+    const match = existing.find(e => namesLooselyMatch(ing.name, e.name));
+    if (match) {
+      match.qty = ing.qty;
+      match.unit = ing.unit || '';
+    } else {
+      existing.push({
+        type: 'simple',
+        name: ing.name,
+        qty: ing.qty,
+        unit: ing.unit || '',
+        section: itemSection(ing.name),
+      });
+    }
+  });
+}
+
 function saveRARecipe() {
   const name = document.getElementById('ra-name').value.trim();
   if (!name) {
@@ -5771,6 +5845,7 @@ function saveRARecipe() {
     recipe.prep = prep;
     recipe.cost = cost;
     RECIPES[name] = recipe;
+    syncStructuredMealIngredients(name, ingredients);
 
     // If new meal, add to MEALS array
     const existingMeal = MEALS.find(m => m.name === name);
