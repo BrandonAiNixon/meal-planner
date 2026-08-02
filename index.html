@@ -1313,9 +1313,10 @@ const SIDE_INGREDIENTS = {
   'Chips': ['Misc chips bag'],
   'Chips & salsa': ['Misc chips bag','Salsa jar'],
   'Baked beans': ['Baked beans 2 cans','Brown sugar','Bacon'],
-  'Potato salad': ['Potatoes 3lbs','Mayo','Mustard','Celery','Yellow onion','Eggs x3'],
-  'Mac salad': ['Elbow macaroni 16oz','Mayo','Celery','Yellow onion','Vinegar'],
-  'Caesar salad': ['Romaine lettuce','Caesar dressing','Parmesan cheese','Croutons'],
+  // Store-bought/kit sides — buy the prepared item, don't invent a scratch recipe's worth of ingredients
+  'Potato salad': ['Potato salad'],
+  'Mac salad': ['Macaroni salad'],
+  'Caesar salad': ['Caesar salad kit'],
   'Wedge salad': ['Iceberg lettuce','Blue cheese dressing','Bacon bits','Cherry tomatoes'],
   'Rice': ['Long grain rice 2 cups','Chicken broth'],
   'Waffle fries': ['Frozen waffle fries 2 bags'],
@@ -1329,7 +1330,7 @@ const SIDE_INGREDIENTS = {
   'Fried cheese sticks': ['Frozen mozzarella sticks bag','Marinara sauce'],
   'Green beans': ['Fresh green beans 1.5lbs','Butter','Salt','Pepper'],
   'Mashed potatoes': ['Potatoes 5lbs','Cream cheese 1 block','Butter 1 stick','Milk','Garlic powder','Salt'],
-  'Coleslaw': ['Coleslaw mix bag','Mayo','Apple cider vinegar','Sugar'],
+  'Coleslaw': ['Coleslaw'],
 };
 
 const DEFAULT_STORE_SECTIONS = [
@@ -1409,6 +1410,10 @@ let itemAisleMap = {
   'Butter': 'Dairy',
   'Butter 1 stick': 'Dairy',
   'Caesar dressing': 'Aisle 5',
+  'Caesar salad kit': 'Produce',
+  'Potato salad': 'Deli',
+  'Macaroni salad': 'Deli',
+  'Coleslaw': 'Deli',
   'Cajun seasoning': 'Aisle 5',
   'Carnation instant breakfast chocolate': 'Aisle 9',
   'Celery': 'Produce',
@@ -4449,18 +4454,22 @@ function openIngredientSource(item) {
       if (day.isSunday || day.mealIndex < 0) return;
       const meal = MEALS[day.mealIndex];
       if (!meal) return;
+      const dayName = DAYS[day.date.getDay()];
+      const alreadyHave = sources.some(s => s.meal === meal.name);
       const structured = STRUCTURED_MEALS[meal.name];
-      if (structured) {
+      if (!alreadyHave && structured) {
         const found = (structured.ingredients || []).some(ing => {
           const ingName = safeStr(typeof ing === 'object' ? ing.name : ing).toLowerCase();
           return ingName === nameLower || ingName.includes(nameLower) || nameLower.includes(ingName);
         });
-        if (found && !sources.includes(meal.name)) sources.push(meal.name);
+        if (found) sources.push({ meal: meal.name, day: dayName });
       }
       // Also check MEAL_INGREDIENTS legacy
-      const legacyIngs = MEAL_INGREDIENTS[meal.name] || [];
-      const legacyFound = legacyIngs.some(ing => safeStr(ing).toLowerCase().includes(nameLower) || nameLower.includes(safeStr(ing).toLowerCase()));
-      if (legacyFound && !sources.includes(meal.name)) sources.push(meal.name);
+      if (!sources.some(s => s.meal === meal.name)) {
+        const legacyIngs = MEAL_INGREDIENTS[meal.name] || [];
+        const legacyFound = legacyIngs.some(ing => safeStr(ing).toLowerCase().includes(nameLower) || nameLower.includes(safeStr(ing).toLowerCase()));
+        if (legacyFound) sources.push({ meal: meal.name, day: dayName });
+      }
     });
 
     if (sources.length === 0) {
@@ -4839,9 +4848,19 @@ function openRenameItem(oldName) {
   Object.keys(MEAL_INGREDIENTS).forEach(meal => {
     MEAL_INGREDIENTS[meal] = MEAL_INGREDIENTS[meal].map(i => i === oldName ? trimmed : i);
   });
+  // Carry pantry tracking (staple membership + stocked/low status) over to the new name
+  if (pantryStaples.has(oldName)) {
+    pantryStaples.delete(oldName);
+    pantryStaples.add(trimmed);
+  }
+  if (Object.prototype.hasOwnProperty.call(pantryState, oldName)) {
+    pantryState[trimmed] = pantryState[oldName];
+    delete pantryState[oldName];
+  }
   saveState();
   renderAdminItems();
   renderShoppingList();
+  renderPantry();
 }
 
 function makeAdminItemRow(name, aisle) {
