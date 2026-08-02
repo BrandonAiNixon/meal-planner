@@ -4302,14 +4302,28 @@ function renderReviewItems(items) {
     reviewRatings[item.key] = 'skip';
     const el = document.createElement('div');
     el.className = 'review-item';
-    el.innerHTML = `
-      <div class="review-item-name">${item.label}</div>
-      <div class="review-item-type">${item.sub}</div>
-      <div class="review-btns" id="rbtn-${item.key.replace(/[^a-z]/gi,'_')}">
-        <button class="review-btn" onclick="setReview('${item.key}','hit',this)">✅ Hit</button>
-        <button class="review-btn" onclick="setReview('${item.key}','miss',this)">❌ Miss</button>
-        <button class="review-btn selected-skip" onclick="setReview('${item.key}','skip',this)">⏳ Skip</button>
-      </div>`;
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'review-item-name';
+    nameEl.textContent = item.label;
+    const subEl = document.createElement('div');
+    subEl.className = 'review-item-type';
+    subEl.textContent = item.sub;
+    const btnGroup = document.createElement('div');
+    btnGroup.className = 'review-btns';
+    btnGroup.id = 'rbtn-' + item.key.replace(/[^a-z]/gi,'_');
+
+    [['hit','✅ Hit'], ['miss','❌ Miss'], ['skip','⏳ Skip']].forEach(([rating, label]) => {
+      const btn = document.createElement('button');
+      btn.className = 'review-btn' + (rating === 'skip' ? ' selected-skip' : '');
+      btn.textContent = label;
+      btn.onclick = () => setReview(item.key, rating, btn);
+      btnGroup.appendChild(btn);
+    });
+
+    el.appendChild(nameEl);
+    el.appendChild(subEl);
+    el.appendChild(btnGroup);
     container.appendChild(el);
   });
   window._reviewItems = items;
