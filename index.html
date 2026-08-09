@@ -4850,11 +4850,11 @@ function quickEditRecipe() {
   const sel = document.getElementById('admin-recipe-quick-select');
   const name = sel.value;
   if (!name) return;
-  // Determine category
-  let cat = 'main';
-  if (SIDE_RECIPES[name]) cat = 'side';
-  else if (DESSERTS[name]) cat = 'dessert';
-  else if (SHAKE_PAIRINGS[name]) cat = 'shake';
+  // Use the category tagged on the selected option — a name can exist in
+  // multiple categories at once (e.g. a main recipe that also has a saved
+  // shake pairing), so re-deriving category from the name alone is ambiguous.
+  const opt = sel.options[sel.selectedIndex];
+  const cat = (opt && opt.dataset.cat) || 'main';
   openRecipeAdmin(name, cat);
 }
 
@@ -4871,6 +4871,7 @@ function populateAdminRecipeSelect() {
   allRecipes.forEach(({n, cat}) => {
     const opt = document.createElement('option');
     opt.value = n;
+    opt.dataset.cat = cat.toLowerCase();
     opt.textContent = n + ' (' + cat + ')';
     sel.appendChild(opt);
   });
