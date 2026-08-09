@@ -1831,7 +1831,24 @@ function saveState() {
       excludedItems: [...excludedItems],
     };
     localStorage.setItem('nixon_meal_planner', JSON.stringify(data));
-  } catch(e) { console.warn('Save failed', e); }
+  } catch(e) {
+    console.warn('Save failed', e);
+    // A failed save here was previously invisible — the in-memory list still
+    // looked fine on screen, but nothing persisted, so the next time the app
+    // was opened (e.g. a fresh session at the store) it would silently revert
+    // to the last save that DID succeed, making recently-added items look
+    // like they vanished. Surface it so it's never silent again.
+    showSaveErrorBanner();
+  }
+}
+
+function showSaveErrorBanner() {
+  if (document.getElementById('save-error-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'save-error-banner';
+  banner.style.cssText = 'position:sticky;top:0;z-index:9999;background:#c0392b;color:white;padding:10px 16px;font-size:13px;text-align:center;';
+  banner.textContent = "⚠️ Couldn't save your changes to this device — recent edits may be lost if you leave the app. Try freeing up storage or reloading.";
+  document.body.insertBefore(banner, document.body.firstChild);
 }
 
 function loadState() {
@@ -3664,16 +3681,23 @@ function buildShoppingList() {
       // Normalize ingredient name for deduplication
       // e.g. "Large flour tortillas" and "Flour tortillas" → same key
       const key = ingredientDedupeKey(ing.name);
-      if (!added.has(key)) {
+      // Same dedupe key can still be a genuinely different purchase — e.g. a
+      // shake's "frozen cucumber chunks" (cup) vs this meal's fresh "Cucumber"
+      // (whole). Only fold into an existing entry when the unit also matches;
+      // otherwise list it separately instead of silently dropping it.
+      const existing = added.has(key)
+        ? (shoppingItems.find(i => ingredientDedupeKey(i.name) === key && i.unit === ing.unit)
+          || shoppingItems.find(i => ingredientDedupeKey(i.name) === key))
+        : null;
+      if (!existing) {
         added.add(key);
         const section = ing.section || itemSection(ing.name);
         shoppingItems.push({ name: safeStr(ing.name), qty: ing.qty, unit: ing.unit, section, checked: false, source: 'meal' });
+      } else if (existing.unit === ing.unit) {
+        if (existing.qty != null && ing.qty != null) existing.qty += ing.qty;
       } else {
-        // Consolidate qty for same item
-        const existing = shoppingItems.find(i => ingredientDedupeKey(i.name) === key);
-        if (existing && existing.qty != null && ing.qty != null && existing.unit === ing.unit) {
-          existing.qty += ing.qty;
-        }
+        const section = ing.section || itemSection(ing.name);
+        shoppingItems.push({ name: safeStr(ing.name), qty: ing.qty, unit: ing.unit, section, checked: false, source: 'meal' });
       }
     });
 
@@ -3740,8 +3764,29 @@ function buildShoppingList() {
         if (!viewQtyMap[vqKey]) viewQtyMap[vqKey] = { section: ingSection, sources: [], displayName: ingName };
         viewQtyMap[vqKey].sources.push({ meal: meal.name + ' shake', qty: ingQty, unit: ingUnit });
 
-        if (!added.has(dedupeKey)) {
+        // Same guard as the meal-ingredient loop above: a shared dedupe key
+        // doesn't guarantee the same purchasable form (e.g. this shake's
+        // "frozen cucumber chunks" vs a meal's fresh whole "Cucumber"), so
+        // only fold in when the unit also matches — otherwise list separately.
+        const existingForShake = added.has(dedupeKey)
+          ? (shoppingItems.find(i => ingredientDedupeKey(i.name) === dedupeKey && i.unit === ingUnit)
+            || shoppingItems.find(i => ingredientDedupeKey(i.name) === dedupeKey))
+          : null;
+        if (!existingForShake) {
           added.add(dedupeKey);
+          shoppingItems.push({
+            name: ingName,
+            qty: ingQty,
+            unit: ingUnit,
+            section: ingSection,
+            checked: false,
+            source: 'shake',
+            shakeFor: meal.name,
+            vqKey: vqKey,
+          });
+        } else if (existingForShake.unit === ingUnit) {
+          if (existingForShake.qty != null && ingQty != null) existingForShake.qty += ingQty;
+        } else {
           shoppingItems.push({
             name: ingName,
             qty: ingQty,
@@ -6058,7 +6103,7 @@ function exportAllData() {
     sugIndex,
   };
 
-  downloadJSON(data, 'nixon-meal-planner-backup-' + new Date().toISOString().slice(0,10) + '.json');
+  downloadJSON(data, 'nixon-meal-planner-backup-' + exportTimestamp() + '.json');
 }
 
 function exportRecipes() {
@@ -6073,7 +6118,20 @@ function exportRecipes() {
     sideRecipes: SIDE_RECIPES,
     desserts: DESSERTS,
   };
-  downloadJSON(data, 'nixon-recipes-' + new Date().toISOString().slice(0,10) + '.json');
+  downloadJSON(data, 'nixon-recipes-' + exportTimestamp() + '.json');
+}
+
+// Local date + time for export filenames, e.g. "2026-08-09-630pm" — so
+// same-day exports (common when snapshotting before/after a change) don't
+// overwrite each other or need the time hand-typed onto the filename.
+function exportTimestamp() {
+  const d = new Date();
+  const date = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'pm' : 'am';
+  hours = hours % 12 || 12;
+  return date + '-' + hours + minutes + ampm;
 }
 
 function downloadJSON(data, filename) {
