@@ -359,6 +359,7 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
     <input class="add-input" id="pantry-add-input" placeholder="Add item (e.g. Coconut water)" onkeydown="if(event.key==='Enter')addPantryStaple()">
     <button class="btn-add" onclick="addPantryStaple()">+ Add</button>
   </div>
+  <input class="add-input" id="pantry-search-input" placeholder="🔍 Search pantry..." oninput="renderPantry()" style="width:100%;box-sizing:border-box;margin-bottom:10px;">
   <div id="pantry-staples-list"></div>
 </div>
 
@@ -4260,10 +4261,16 @@ function renderPantry() {
 
   if (!listContainer) return;
 
-  const allStaples = [...pantryStaples].sort();
+  const searchQuery = (document.getElementById('pantry-search-input')?.value || '').trim().toLowerCase();
+
+  const allStaples = [...pantryStaples]
+    .filter(s => !searchQuery || s.toLowerCase().includes(searchQuery))
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
   if (allStaples.length === 0) {
-    listContainer.innerHTML = '<p style="font-size:13px;color:var(--text3);padding:8px 0;">No items added yet. Tap 🏠 on any shopping list item to add it here.</p>';
+    listContainer.innerHTML = searchQuery
+      ? '<p style="font-size:13px;color:var(--text3);padding:8px 0;">No items match your search.</p>'
+      : '<p style="font-size:13px;color:var(--text3);padding:8px 0;">No items added yet. Tap 🏠 on any shopping list item to add it here.</p>';
     return;
   }
 
