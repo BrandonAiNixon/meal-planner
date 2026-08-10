@@ -5570,6 +5570,8 @@ function openRecipeAdmin(prefillName, prefillCategory) {
     b.classList.toggle('active', b.dataset.cat === raCategory);
   });
 
+  updateRAMetaVisibility();
+
   // If prefill name provided, load that recipe
   if (prefillName) {
     raEditingName = prefillName;
@@ -5577,7 +5579,6 @@ function openRecipeAdmin(prefillName, prefillCategory) {
     loadRAExisting();
   }
 
-  updateRAMetaVisibility();
   document.getElementById('recipe-admin-modal').classList.add('open');
 }
 
@@ -5603,15 +5604,19 @@ function updateRAMetaVisibility() {
   if (shakeSection) {
     shakeSection.style.display = raCategory === 'shake' ? 'block' : 'none';
     if (raCategory === 'shake') {
-      // Populate meal selector
+      // Re-populate meal selector every time (so newly-added meals show up),
+      // sorted alphabetically, preserving whatever is currently selected.
       const mealSel = document.getElementById('ra-shake-meal');
-      if (mealSel && mealSel.options.length <= 1) {
-        MEALS.filter(m => !m.isLeftover).forEach(m => {
+      if (mealSel) {
+        const selected = mealSel.value;
+        mealSel.innerHTML = '<option value="">— Select meal to pair with —</option>';
+        MEALS.filter(m => !m.isLeftover).map(m => m.name).sort((a, b) => a.localeCompare(b)).forEach(name => {
           const opt = document.createElement('option');
-          opt.value = m.name;
-          opt.textContent = m.name;
+          opt.value = name;
+          opt.textContent = name;
           mealSel.appendChild(opt);
         });
+        mealSel.value = selected;
       }
     }
   }
@@ -5726,6 +5731,8 @@ function clearRAForm() {
   raEditingName = null;
   document.getElementById('ra-modal-title').textContent = 'Add / Edit Recipe';
   document.getElementById('ra-existing-select').value = '';
+  const raShakeMealSel = document.getElementById('ra-shake-meal');
+  if (raShakeMealSel) raShakeMealSel.value = '';
   document.getElementById('ra-name').value = '';
   document.getElementById('ra-prep').value = 'Q';
   document.getElementById('ra-cost').value = '$';
