@@ -5910,6 +5910,7 @@ function saveRARecipe() {
       notes: notes || null,
       rating: existingPairing.rating || 'testing',
     };
+    buildShoppingList();
     saveState();
     populateRASelect();
     document.getElementById('ra-status').textContent = '✅ ' + name + ' saved!';
