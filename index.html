@@ -359,7 +359,10 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
     <input class="add-input" id="pantry-add-input" placeholder="Add item (e.g. Coconut water)" onkeydown="if(event.key==='Enter')addPantryStaple()">
     <button class="btn-add" onclick="addPantryStaple()">+ Add</button>
   </div>
-  <input class="add-input" id="pantry-search-input" placeholder="🔍 Search pantry..." oninput="renderPantry()" style="width:100%;box-sizing:border-box;margin-bottom:10px;">
+  <div style="position:relative;margin-bottom:10px;">
+    <input class="add-input" id="pantry-search-input" placeholder="🔍 Search pantry..." oninput="renderPantry()" style="width:100%;box-sizing:border-box;padding-right:32px;">
+    <button id="pantry-search-clear" onclick="clearPantrySearch()" title="Clear search" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:4px 6px;line-height:1;">✕</button>
+  </div>
   <div id="pantry-staples-list"></div>
 </div>
 
@@ -4209,6 +4212,14 @@ function getPantryStapleItems() {
   return [...pantryStaples];
 }
 
+function clearPantrySearch() {
+  const input = document.getElementById('pantry-search-input');
+  if (!input) return;
+  input.value = '';
+  input.focus();
+  renderPantry();
+}
+
 function renderPantry() {
   // ── Build set of pantry staples used this week ──────────────────────────
   const usedIngredients = new Set();
@@ -4262,6 +4273,8 @@ function renderPantry() {
   if (!listContainer) return;
 
   const searchQuery = (document.getElementById('pantry-search-input')?.value || '').trim().toLowerCase();
+  const clearBtn = document.getElementById('pantry-search-clear');
+  if (clearBtn) clearBtn.style.display = searchQuery ? 'block' : 'none';
 
   const allStaples = [...pantryStaples]
     .filter(s => !searchQuery || s.toLowerCase().includes(searchQuery))
