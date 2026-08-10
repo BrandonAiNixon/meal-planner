@@ -5960,6 +5960,7 @@ function saveRARecipe() {
   }
 
   // Save to localStorage
+  buildShoppingList();
   saveState();
   populateRASelect();
   document.getElementById('ra-status').textContent = '✅ ' + name + ' saved!';
@@ -6427,7 +6428,7 @@ renderHistory();
     <div style="margin-bottom:12px;">
       <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:6px;">Recipe Name</div>
       <div style="display:flex;gap:6px;">
-        <select id="ra-existing-select" style="flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;" onchange="loadRAExisting()">
+        <select id="ra-existing-select" style="flex:1;min-width:0;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;" onchange="loadRAExisting()">
           <option value="">— Select existing to edit —</option>
         </select>
         <button onclick="clearRAForm()" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;cursor:pointer;white-space:nowrap;color:var(--text2);">+ New</button>
@@ -6546,7 +6547,7 @@ renderHistory();
         </div>
         <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:6px;">Edit Existing</div>
         <div style="display:flex;gap:6px;">
-          <select id="admin-recipe-quick-select" style="flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;">
+          <select id="admin-recipe-quick-select" style="flex:1;min-width:0;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;">
             <option value="">— Select a recipe to edit —</option>
           </select>
           <button onclick="quickEditRecipe()" style="background:var(--accent);color:white;border:none;border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;cursor:pointer;">Edit</button>
