@@ -4863,16 +4863,21 @@ function populateAdminRecipeSelect() {
   if (!sel) return;
   sel.innerHTML = '<option value="">— Select a recipe to edit —</option>';
   const allRecipes = [
-    ...Object.keys(RECIPES).map(n => ({n, cat:'Main'})),
-    ...Object.keys(SIDE_RECIPES).map(n => ({n, cat:'Side'})),
-    ...Object.keys(DESSERTS).map(n => ({n, cat:'Dessert'})),
-    ...Object.keys(SHAKE_PAIRINGS).map(n => ({n, cat:'Shake'})),
-  ].sort((a,b) => a.n.localeCompare(b.n));
-  allRecipes.forEach(({n, cat}) => {
+    ...Object.keys(RECIPES).map(n => ({n, label:n, cat:'Main'})),
+    ...Object.keys(SIDE_RECIPES).map(n => ({n, label:n, cat:'Side'})),
+    ...Object.keys(DESSERTS).map(n => ({n, label:n, cat:'Dessert'})),
+    // Value stays the paired meal's name (the SHAKE_PAIRINGS key, needed by
+    // quickEditRecipe/openRecipeAdmin) — label shows the shake's own name so
+    // it can be found by what it's actually called, not by the meal it's
+    // paired with. Previously the shake's own name never appeared here at
+    // all, so newly-added shakes looked missing from this list.
+    ...Object.keys(SHAKE_PAIRINGS).map(n => ({n, label:(SHAKE_PAIRINGS[n].name || n) + ' — ' + n, cat:'Shake'})),
+  ].sort((a,b) => a.label.localeCompare(b.label));
+  allRecipes.forEach(({n, label, cat}) => {
     const opt = document.createElement('option');
     opt.value = n;
     opt.dataset.cat = cat.toLowerCase();
-    opt.textContent = n + ' (' + cat + ')';
+    opt.textContent = label + ' (' + cat + ')';
     sel.appendChild(opt);
   });
   // Update count
@@ -5633,23 +5638,28 @@ function populateRASelect() {
   const sel = document.getElementById('ra-existing-select');
   sel.innerHTML = '<option value="">— Select existing to edit —</option>';
 
-  let names = [];
+  let items = [];
   if (raCategory === 'main') {
-    names = Object.keys(RECIPES).sort();
+    items = Object.keys(RECIPES).sort().map(n => ({value:n, label:n}));
   } else if (raCategory === 'side') {
-    names = Object.keys(SIDE_RECIPES).sort();
+    items = Object.keys(SIDE_RECIPES).sort().map(n => ({value:n, label:n}));
   } else if (raCategory === 'dessert') {
-    names = Object.keys(DESSERTS).sort();
+    items = Object.keys(DESSERTS).sort().map(n => ({value:n, label:n}));
   } else if (raCategory === 'breakfast' || raCategory === 'lunch') {
-    names = MEALS.filter(m => m.mealType === raCategory).map(m => m.name).sort();
+    items = MEALS.filter(m => m.mealType === raCategory).map(m => m.name).sort().map(n => ({value:n, label:n}));
   } else if (raCategory === 'shake') {
-    names = Object.keys(SHAKE_PAIRINGS).sort();
+    // Value stays the paired meal's name (SHAKE_PAIRINGS key, used by
+    // loadRAExisting) — label shows the shake's own name so it can be found
+    // by what it's actually called rather than by the meal it's paired with.
+    items = Object.keys(SHAKE_PAIRINGS)
+      .map(mealName => ({ value: mealName, label: (SHAKE_PAIRINGS[mealName].name || mealName) + ' — ' + mealName }))
+      .sort((a, b) => a.label.localeCompare(b.label));
   }
 
-  names.forEach(name => {
+  items.forEach(({value, label}) => {
     const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
+    opt.value = value;
+    opt.textContent = label;
     sel.appendChild(opt);
   });
 }
