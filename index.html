@@ -1819,6 +1819,16 @@ function saveState() {
       mealHistory,
       // Save any meals added at runtime (accepted suggestions, recipe admin additions)
       customMeals: MEALS.filter(m => !m._coded).map(m => ({...m})),
+      // Recipe Admin edits to a *coded* meal's sides/prep/cost (e.g. changing
+      // Chicken Fried Steak's side) used to silently revert on reload — coded
+      // meals were entirely excluded from what got saved. Saving the full ~80
+      // coded meals every time fixed that but blew past localStorage's quota
+      // on-device, so instead only the small handful actually touched via
+      // Recipe Admin get a lightweight override entry here (see saveRARecipe,
+      // which flags a coded meal `_edited: true` the moment it's changed).
+      codedMealEdits: Object.fromEntries(
+        MEALS.filter(m => m._coded && m._edited).map(m => [m.name, { sides: m.sides, prep: m.prep, cost: m.cost }])
+      ),
       // Recipe Admin edits to these were previously never persisted here at all —
       // they only survived within the current tab's memory until reload, silently
       // reverting to the coded defaults. Save them the same way shakePairings already was.
@@ -1835,6 +1845,7 @@ function saveState() {
       excludedItems: [...excludedItems],
     };
     localStorage.setItem('nixon_meal_planner', JSON.stringify(data));
+    hideSaveErrorBanner();
   } catch(e) {
     console.warn('Save failed', e);
     // A failed save here was previously invisible — the in-memory list still
@@ -1853,6 +1864,11 @@ function showSaveErrorBanner() {
   banner.style.cssText = 'position:sticky;top:0;z-index:9999;background:#c0392b;color:white;padding:10px 16px;font-size:13px;text-align:center;';
   banner.textContent = "⚠️ Couldn't save your changes to this device — recent edits may be lost if you leave the app. Try freeing up storage or reloading.";
   document.body.insertBefore(banner, document.body.firstChild);
+}
+
+function hideSaveErrorBanner() {
+  const banner = document.getElementById('save-error-banner');
+  if (banner) banner.remove();
 }
 
 function loadState() {
@@ -1887,6 +1903,18 @@ function loadState() {
       data.customMeals.forEach(m => {
         if (!MEALS.find(existing => existing.name === m.name)) {
           MEALS.push(m);
+        }
+      });
+    }
+    // Re-apply lightweight Recipe Admin overrides for coded meals (sides/
+    // prep/cost) — see saveState()'s codedMealEdits comment for why this is
+    // separate from the customMeals list above.
+    if (data.codedMealEdits) {
+      Object.entries(data.codedMealEdits).forEach(([name, edits]) => {
+        const existing = MEALS.find(e => e.name === name);
+        if (existing) {
+          Object.assign(existing, edits);
+          existing._edited = true;
         }
       });
     }
@@ -2485,25 +2513,35 @@ function openSwap(weekIndex) {
 
 // ── RECIPE ────────────────────────────────────────────────────────────────────
 let activeShakeMealIndex = -1;
-let shakeSession = []; // stack of generated shakes for current session
-let shakeSessionIdx = 0; // current position in stack
 let shakeRecipeOpen = false;
 
 function openShake(mealIndex) {
   activeShakeMealIndex = mealIndex;
-  shakeSession = [];
-  shakeSessionIdx = 0;
   shakeRecipeOpen = false;
   const meal = MEALS[mealIndex];
   if (!meal) return;
   document.getElementById('shake-meal-name').textContent = meal.name;
   renderShakeModal();
   document.getElementById('shake-modal').classList.add('open');
-  // Auto-generate first shake only if no active pairing AND no session in progress
-  const active = SHAKE_PAIRINGS[meal.name];
-  if (!active && shakeSession.length === 0) {
-    generateShake(mealIndex, 'auto');
-  }
+}
+
+function shakeLibraryHtml(library) {
+  if (!library || library.length === 0) return '';
+  let libHtml = `<div class="shake-divider"></div><div class="shake-library">
+    <div class="shake-library-title">Saved for later (${library.length})</div>`;
+  library.forEach((s, i) => {
+    const stratCls = s.strategy === 'complement' ? 'complement' : 'contrast';
+    libHtml += `<div class="shake-lib-item">
+      <div style="flex:1;">
+        <div class="shake-lib-name">${s.name}</div>
+        <span class="shake-lib-badge shake-pick-badge ${stratCls}" style="margin:0;">${s.strategy}</span>
+      </div>
+      <button onclick="activateLibraryShake(${i})" style="font-size:12px;background:var(--accent-light);border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:4px 10px;cursor:pointer;">Use this week</button>
+      <button onclick="removeLibraryShake(${i})" style="font-size:12px;background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;">✕</button>
+    </div>`;
+  });
+  libHtml += '</div>';
+  return libHtml;
 }
 
 function renderShakeModal() {
@@ -2514,51 +2552,16 @@ function renderShakeModal() {
   const actionsEl = document.getElementById('shake-actions');
   const navLabel = document.getElementById('shake-nav-label');
   const statusBadge = document.getElementById('shake-status-badge');
+  const mealNameEsc = meal.name.replace(/'/g, "\\'");
 
-  // If we have session shakes, show current session shake
-  if (shakeSession.length > 0) {
-    // Migrate any legacy string ingredients in session
-    shakeSession.forEach(s => {
-      if (s.ingredients && s.ingredients.length > 0 && typeof s.ingredients[0] === 'string') {
-        s.ingredients = migrateShakeIngredients(s.ingredients);
-      }
-    });
-    const shake = shakeSession[shakeSessionIdx];
-    const isFirst = shakeSessionIdx === 0;
-    const isLast = shakeSessionIdx === shakeSession.length - 1;
-    const navText = shakeSession.length > 1 ? `Option ${shakeSessionIdx+1} of ${shakeSession.length}` : 'New option';
-    navLabel.textContent = navText;
-    statusBadge.textContent = '';
-    renderShakeCard(shake, contentEl, true);
-
-    let acts = '';
-    if (shakeSession.length > 1) {
-      acts += `<button class="btn-shake-nav" onclick="shakeNav(-1)" ${isFirst?'style="opacity:0.4;pointer-events:none;"':''}>← Back</button>`;
-    }
-    acts += `<button class="btn-use-shake" onclick="useShake()">Use this one</button>`;
-    if (shakeSession.length > 1) {
-      acts += `<button class="btn-shake-nav" onclick="shakeNav(1)" ${isLast?'style="opacity:0.4;pointer-events:none;"':''}>Next →</button>`;
-    }
-    actionsEl.innerHTML = acts;
-    const isSaved = shakeSession[shakeSessionIdx].savedForLater;
-    actionsEl.innerHTML += isSaved
-      ? `<div style="flex:1;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--blue);font-weight:500;">💾 Saved for later</div>`
-      : `<button class="btn-save-shake" onclick="saveShakeLater()">💾 Save for later</button>`;
-    actionsEl.innerHTML += `<button class="btn-gen-shake" onclick="generateShake(${activeShakeMealIndex},'same')">↻ Different ingredients, same strategy</button>`;
-    const otherStrat = shake.strategy === 'complement' ? 'contrast' : 'complement';
-    actionsEl.innerHTML += `<button class="btn-gen-shake" onclick="generateShake(${activeShakeMealIndex},'${otherStrat}')">⇄ Try ${otherStrat} instead</button>`;
-    return;
-  }
-
-  // No session — show active pairing or empty state
   if (!active) {
     navLabel.textContent = '';
     statusBadge.textContent = '';
     contentEl.innerHTML = `<div style="text-align:center;padding:24px 0;">
       <div style="font-size:36px;margin-bottom:8px;">🥤</div>
       <div style="font-size:14px;color:var(--text2);">No shake paired yet.</div>
-    </div>`;
-    actionsEl.innerHTML = `<button class="btn-gen-shake" onclick="generateShake(${activeShakeMealIndex},'auto')">✦ Generate Claude's recommendation</button>`;
+    </div>` + shakeLibraryHtml(library);
+    actionsEl.innerHTML = `<button class="btn-gen-shake" onclick="openShakeAdminFor('${mealNameEsc}')">✏️ Create a shake for this meal</button>`;
     return;
   }
 
@@ -2566,43 +2569,22 @@ function renderShakeModal() {
   const ratingEmoji = active.rating === 'hit' ? '✅' : active.rating === 'miss' ? '❌' : '⏳';
   statusBadge.textContent = ratingEmoji + (active.rating === 'hit' ? ' Active' : active.rating === 'testing' ? ' Testing' : '');
   navLabel.textContent = active.rating === 'hit' ? 'Locked in — rotates with this meal' : 'Saved — rate it next Monday';
-  renderShakeCard(active, contentEl, false);
+  renderShakeCard(active, contentEl);
+  contentEl.innerHTML += shakeLibraryHtml(library);
 
-  actionsEl.innerHTML = `<button class="btn-gen-shake" onclick="generateShake(${activeShakeMealIndex},'auto')">✦ Generate alternatives</button>`;
-
-  // Show shake library if any
-  if (library.length > 0) {
-    let libHtml = `<div class="shake-divider"></div><div class="shake-library">
-      <div class="shake-library-title">Saved for later (${library.length})</div>`;
-    library.forEach((s, i) => {
-      const stratCls = s.strategy === 'complement' ? 'complement' : 'contrast';
-      libHtml += `<div class="shake-lib-item">
-        <div style="flex:1;">
-          <div class="shake-lib-name">${s.name}</div>
-          <span class="shake-lib-badge shake-pick-badge ${stratCls}" style="margin:0;">${s.strategy}</span>
-        </div>
-        <button onclick="activateLibraryShake(${i})" style="font-size:12px;background:var(--accent-light);border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:4px 10px;cursor:pointer;">Use this week</button>
-        <button onclick="removeLibraryShake(${i})" style="font-size:12px;background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;">✕</button>
-      </div>`;
-    });
-    libHtml += '</div>';
-    contentEl.innerHTML += libHtml;
-  }
+  actionsEl.innerHTML = `<button class="btn-gen-shake" onclick="openShakeAdminFor('${mealNameEsc}')">✏️ Edit this shake</button>`;
 }
 
-function renderShakeCard(shake, el, isSession) {
+function renderShakeCard(shake, el) {
   const stratCls = shake.strategy === 'complement' ? 'complement' : 'contrast';
-  const isRecommended = shake.claudePick && isSession && shakeSessionIdx === 0;
-  const badge = isRecommended
-    ? `<span class="shake-pick-badge recommended">✦ Claude's pick</span>`
-    : `<span class="shake-pick-badge ${stratCls}">${shake.strategy}</span>`;
+  const badge = `<span class="shake-pick-badge ${stratCls}">${shake.strategy}</span>`;
 
   let html = `<div class="shake-card">
     ${badge}
     <div class="shake-card-name">${shake.name}</div>
     <div class="shake-rationale">${shake.rationale}</div>`;
 
-  const recipeId = 'shake-recipe-' + (isSession ? shakeSessionIdx : 'active');
+  const recipeId = 'shake-recipe-active';
   html += `<button class="shake-recipe-toggle" id="btn-${recipeId}" onclick="toggleShakeRecipe('${recipeId}')">📖 See recipe</button>
     <div id="${recipeId}" style="display:none;">`;
   html += '<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text2);margin-bottom:6px;">Ingredients (2 scoops = 30g protein)</div>';
@@ -2645,37 +2627,6 @@ function toggleShakeRecipe(recipeId) {
   btn.textContent = open ? '📖 See recipe' : '▲ Hide recipe';
 }
 
-function shakeNav(dir) {
-  shakeSessionIdx = Math.max(0, Math.min(shakeSession.length - 1, shakeSessionIdx + dir));
-  shakeRecipeOpen = false;
-  renderShakeModal();
-}
-
-function useShake() {
-  const shake = shakeSession[shakeSessionIdx];
-  const meal = MEALS[activeShakeMealIndex];
-  SHAKE_PAIRINGS[meal.name] = { ...shake, rating: 'testing' };
-  shakeSession = [];
-  saveState();
-  renderShakeModal();
-  // Update day card badge
-  renderWeek();
-}
-
-function saveShakeLater() {
-  const shake = shakeSession[shakeSessionIdx];
-  const meal = MEALS[activeShakeMealIndex];
-  if (!meal.shakeLibrary) meal.shakeLibrary = [];
-  // Avoid duplicates
-  if (!meal.shakeLibrary.find(s => s.name === shake.name)) {
-    meal.shakeLibrary.push({ ...shake });
-  }
-  // Mark as saved in session so UI can show it — don't remove
-  shakeSession[shakeSessionIdx].savedForLater = true;
-  saveState();
-  renderShakeModal();
-}
-
 function activateLibraryShake(libIdx) {
   const meal = MEALS[activeShakeMealIndex];
   const shake = meal.shakeLibrary[libIdx];
@@ -2699,159 +2650,22 @@ function removeLibraryShake(libIdx) {
   renderShakeModal();
 }
 
-async function generateShake(mealIndex, strategy) {
-  const meal = MEALS[mealIndex];
-  if (!meal) return;
-  const contentEl = document.getElementById('shake-content');
-  const actionsEl = document.getElementById('shake-actions');
-  const navLabel = document.getElementById('shake-nav-label');
-
-  contentEl.innerHTML = `<div style="text-align:center;padding:24px 0;">
-    <div style="font-size:32px;margin-bottom:8px;">🥤</div>
-    <div style="font-size:14px;color:var(--text2);">Crafting ${strategy === 'auto' ? "Claude's best pairing" : strategy + ' shake'}...</div>
-  </div>`;
-  actionsEl.innerHTML = '';
-  navLabel.textContent = '';
-
-  const existingHits = Object.entries(SHAKE_PAIRINGS)
-    .filter(([,v]) => v.rating === 'hit')
-    .map(([k,v]) => k + ': ' + v.name + ' (' + v.strategy + ')')
-    .join('\n');
-  const existingMisses = Object.entries(SHAKE_PAIRINGS)
-    .filter(([,v]) => v.rating === 'miss')
-    .map(([k,v]) => k + ': ' + v.name + ' (' + v.strategy + ')')
-    .join('\n');
-  const triedInSession = shakeSession.map(s => {
-    const ingNames = (s.ingredients||[]).slice(0,3).map(i => typeof i === 'object' ? i.name : i).join(', ');
-    return s.name + ' (' + s.strategy + ', key ingredients: ' + ingNames + ')';
-  }).join('\n');
-  const strategyInstruction = strategy === 'auto'
-    ? 'Choose the BEST strategy (complement or contrast) for this specific meal. Explain your reasoning in the rationale.'
-    : `Use the ${strategy.toUpperCase()} strategy. Create a DIFFERENT shake than any already tried — use different hero ingredients and flavor profile.`;
-
-  // Get actual sides for this meal — check if day has custom sides
-  const dayEntry = weekPlan.find(d => !d.isSunday && d.mealIndex === mealIndex);
-  const actualSides = (dayEntry && dayEntry.customSides) ? dayEntry.customSides : (meal.sides || []);
-  const mealContext = [
-    meal.name,
-    actualSides.length > 0 ? 'with sides: ' + actualSides.join(', ') : '',
-    meal.mainNote ? '(' + meal.mainNote + ')' : '',
-    meal.prep === 'S' ? '(slow cooked)' : meal.prep === 'Q' ? '(quick meal)' : '',
-  ].filter(Boolean).join(' ');
-
-  const shakeContext = buildShakePromptContext();
-
-  const prompt = `You are a protein shake pairing expert for a triathlon athlete. Create ONE protein shake to serve ALONGSIDE (not before or after) "${mealContext}".
-
-RULES:
-- Serve alongside the meal, not as dessert or after
-- Kid-friendly flavor — served at family dinner table
-- Shake complements the dining experience without competing
-
-STRATEGY: ${strategyInstruction}
-Complement = mirror/enhance the meal's flavors
-Contrast = cut through richness, cleanse the palate
-
-${shakeContext}
-${triedInSession ? 'ALREADY SHOWN THIS SESSION — use DIFFERENT core ingredients:\n' + triedInSession : ''}
-
-STRICT INGREDIENT FORMAT — you MUST follow this exactly:
-- Return ingredients as structured objects: { "qty": number, "unit": string, "name": string }
-- qty: a number only (e.g. 2, 0.5, 0.25)
-- unit: MUST be one of exactly these values: scoop, cup, tbsp, tsp, oz, pinch, leaf, sprig, whole, bag
-- name: plain ingredient name ONLY — no quantities, no brand names, no adjectives like "cold", "HEB", "fresh", "frozen", "ground", "plain", "unsweetened"
-  ✅ CORRECT: "vanilla protein powder", "coconut water", "mixed berries", "lime juice", "cinnamon"
-  ❌ WRONG: "2 scoops vanilla protein powder", "1 cup HEB whole milk", "fresh mint leaves", "ground cinnamon"
-- ALWAYS start with: { "qty": 2, "unit": "scoop", "name": "vanilla protein powder" }
-- Never include ice or water
-
-Respond ONLY with valid JSON, no markdown, no extra text:
-{
-  "name": "Shake Name",
-  "strategy": "complement or contrast",
-  "rationale": "One sentence — WHY this strategy for this specific meal",
-  "ingredients": [
-    { "qty": 2, "unit": "scoop", "name": "vanilla protein powder" },
-    { "qty": 1, "unit": "cup", "name": "whole milk" },
-    { "qty": 0.5, "unit": "cup", "name": "frozen mango chunks" }
-  ],
-  "steps": ["Step 1", "Step 2", "Step 3"],
-  "whatToNote": "One specific thing to observe after the meal to refine this pairing strategy"
-}`;
-
-  try {
-    // Get API key from localStorage setting
-    const apiKey = localStorage.getItem('nixon_api_key') || '';
-    if (!apiKey) {
-      contentEl.innerHTML = '<div style="padding:16px;text-align:center;"><p style="color:var(--text2);font-size:14px;margin-bottom:12px;">To generate shakes on your device, add your Anthropic API key in Settings → Global Preferences.</p><button class="btn-accept" onclick="openAdmin()">Open Settings</button></div>';
-      return;
-    }
-
-    // Use proxy URL if set, otherwise try direct (works in Claude.ai but not standalone)
-    const proxyUrl = localStorage.getItem('nixon_proxy_url') || '';
-    let response;
-    if (proxyUrl) {
-      // Via Cloudflare Worker proxy — bypasses CORS restriction
-      response = await fetch(proxyUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          apiKey,
-          model: 'claude-sonnet-4-5',
-          max_tokens: 1000,
-          messages: [{ role: 'user', content: prompt }]
-        })
-      });
+// Shake recipes are entered manually via Recipe Admin (see openShakeAdminFor)
+// — AI generation was removed so every pairing is hand-authored and assigned
+// directly to a meal instead of picked from generated alternatives.
+function openShakeAdminFor(mealName) {
+  closeModal('shake-modal');
+  openRecipeAdmin(null, 'shake');
+  setTimeout(() => {
+    const existingSel = document.getElementById('ra-existing-select');
+    if (SHAKE_PAIRINGS[mealName] && existingSel) {
+      existingSel.value = mealName;
+      loadRAExisting();
     } else {
-      // Direct call — works in Claude.ai, blocked by CORS in standalone Safari
-      response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-request-source': 'user-owned',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-5',
-          max_tokens: 1000,
-          messages: [{ role: 'user', content: prompt }]
-        })
-      });
+      const mealSel = document.getElementById('ra-shake-meal');
+      if (mealSel) mealSel.value = mealName;
     }
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      const errMsg = errData.error?.message || response.statusText || response.status;
-      throw new Error('API error ' + response.status + ': ' + errMsg);
-    }
-    const data = await response.json();
-    const text = data.content.map(b => b.text || '').join('').trim();
-    const clean = text.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(clean);
-    // Normalize ingredients — handle both structured {qty,unit,name} and legacy strings
-    const normalizedIngredients = (parsed.ingredients || []).map(ing => {
-      if (typeof ing === 'object' && ing.name) {
-        return { qty: ing.qty || null, unit: ing.unit || '', name: ing.name };
-      }
-      // Legacy string format — store as-is
-      return { qty: null, unit: '', name: String(ing) };
-    });
-
-    const newShake = {
-      name: parsed.name,
-      strategy: parsed.strategy,
-      rationale: parsed.rationale,
-      ingredients: normalizedIngredients,
-      steps: parsed.steps,
-      claudePick: strategy === 'auto',
-    };
-    shakeSession.push(newShake);
-    shakeSessionIdx = shakeSession.length - 1;
-    renderShakeModal();
-  } catch(err) {
-    contentEl.innerHTML = `<div class="no-recipe">Could not generate shake. Check connection and try again.<br><small style="color:var(--text3)">${err.message}</small></div>`;
-    actionsEl.innerHTML = `<button class="btn-gen-shake" onclick="generateShake(${mealIndex},'auto')">↻ Try again</button>`;
-  }
+  }, 50);
 }
 
 function saveShake(mealIndex) {
@@ -3616,6 +3430,55 @@ function namesLooselyMatch(a, b) {
   const wb = coreIngredientWords(b);
   if (wa.length === 0 || wb.length === 0) return false;
   return wa.join(' ') === wb.join(' ');
+}
+
+const INGREDIENT_UNIT_WORDS = new Set([
+  'cup','cups','tbsp','tablespoon','tablespoons','tsp','teaspoon','teaspoons',
+  'oz','lb','lbs','g','kg','pinch','scoop','scoops','clove','cloves',
+  'bag','bags','box','boxes','jar','jars','can','cans','container','containers',
+  'package','packages','block','blocks','stick','sticks','loaf','loaves',
+  'head','heads','sprig','sprigs','bunch','bundle','whole','slice','slices',
+  'rack','bottle','bottles','quart','quarts','pint','pints','gallon','gallons',
+  'dozen','piece','pieces','pound','pounds',
+]);
+
+// Splits a legacy free-text ingredient string like "2 cups tomato juice" or
+// "½ tsp black pepper" into {qty, unit, name} so Recipe Admin can populate
+// clean, editable fields instead of dumping the whole string into the name
+// box. Dumping the whole string was the root cause of the Roman Holiday
+// "Tomato juice" + "Tomatoes" duplicate: editing that garbled row and
+// retyping just "Tomatoes" no longer loosely-matched the real "Tomato juice"
+// structured ingredient, so save forked a brand-new entry instead of
+// updating it (see syncStructuredMealIngredients).
+function parseIngredientString(str) {
+  const s = String(str || '').trim();
+  const unicodeFracs = {'¼':0.25,'½':0.5,'¾':0.75,'⅓':0.333,'⅔':0.667,'⅛':0.125,'⅜':0.375,'⅝':0.625,'⅞':0.875};
+  const m = s.match(/^(\d+(?:\.\d+)?\s?[¼½¾⅓⅔⅛⅜⅝⅞]?|[¼½¾⅓⅔⅛⅜⅝⅞]|\d+\/\d+)\s+(.*)$/);
+  if (!m) return { qty: null, unit: '', name: s };
+  const qtyStr = m[1].trim();
+  const rest = m[2] || '';
+  let qty;
+  if (unicodeFracs[qtyStr]) {
+    qty = unicodeFracs[qtyStr];
+  } else if (/[¼½¾⅓⅔⅛⅜⅝⅞]$/.test(qtyStr)) {
+    const whole = parseFloat(qtyStr) || 0;
+    qty = whole + (unicodeFracs[qtyStr.slice(-1)] || 0);
+  } else if (qtyStr.includes('/')) {
+    const [n, d] = qtyStr.split('/');
+    qty = parseFloat(n) / parseFloat(d);
+  } else {
+    qty = parseFloat(qtyStr);
+  }
+  if (isNaN(qty) || !rest.trim()) return { qty: null, unit: '', name: s };
+  const restMatch = rest.match(/^([a-zA-Z]+)\s+(.*)$/);
+  let unit = '', name = rest.trim();
+  if (restMatch && INGREDIENT_UNIT_WORDS.has(restMatch[1].toLowerCase()) && restMatch[2].trim()) {
+    unit = restMatch[1].toLowerCase();
+    name = restMatch[2].trim();
+  }
+  name = name.replace(/,\s*$/, '').trim();
+  if (!name) return { qty: null, unit: '', name: s };
+  return { qty, unit, name };
 }
 
 // Whole-word substring match — true if `needle` appears in `haystack` bounded
@@ -4831,39 +4694,8 @@ function openAdmin() {
   renderAdminPrefs();
   renderAdminExcluded();
   updateAdminCounts();
-  loadApiKeyStatus();
   populateAdminRecipeSelect();
   document.getElementById('admin-overlay').style.display = 'block';
-}
-
-function saveProxyUrl() {
-  const input = document.getElementById('proxy-url-input');
-  const val = input ? input.value.trim() : '';
-  if (!val) { localStorage.removeItem('nixon_proxy_url'); document.getElementById('proxy-url-status').textContent = 'Proxy URL cleared'; return; }
-  localStorage.setItem('nixon_proxy_url', val);
-  document.getElementById('proxy-url-status').textContent = '✅ Proxy URL saved';
-  input.value = '';
-}
-
-function saveApiKey() {
-  const input = document.getElementById('api-key-input');
-  const val = input ? input.value.trim() : '';
-  if (!val) {
-    document.getElementById('api-key-status').textContent = 'Please enter a key';
-    return;
-  }
-  localStorage.setItem('nixon_api_key', val);
-  document.getElementById('api-key-status').textContent = '✅ Key saved — shake generation enabled';
-  input.value = '';
-}
-
-function loadApiKeyStatus() {
-  const key = localStorage.getItem('nixon_api_key') || '';
-  const status = document.getElementById('api-key-status');
-  if (status) status.textContent = key ? '✅ API key is set' : 'No key set — shake generation disabled on device';
-  const proxy = localStorage.getItem('nixon_proxy_url') || '';
-  const pStatus = document.getElementById('proxy-url-status');
-  if (pStatus) pStatus.textContent = proxy ? '✅ Proxy set: ' + proxy.substring(0,40) + '...' : 'No proxy set — required for iPhone Safari';
 }
 
 function quickEditRecipe() {
@@ -5734,13 +5566,23 @@ function loadRAExisting() {
   if (recipe.prep) document.getElementById('ra-prep').value = recipe.prep;
   if (recipe.cost) document.getElementById('ra-cost').value = recipe.cost;
 
-  // Load ingredients
+  // Load ingredients — legacy entries are free-text display strings (e.g.
+  // "2 cups tomato juice"), not {qty,unit,name} objects, so parse them into
+  // clean fields instead of dumping the whole string into the name box.
   const ingList = document.getElementById('ra-ingredients-list');
   ingList.innerHTML = '';
   (recipe.ingredients || []).forEach(ing => {
-    const qty = typeof ing === 'object' ? (ing.qty || '') : '';
-    const unit = typeof ing === 'object' ? (ing.unit || '') : '';
-    const name = typeof ing === 'object' ? (ing.name || '') : String(ing);
+    let qty, unit, name;
+    if (typeof ing === 'object' && ing !== null) {
+      qty = ing.qty || '';
+      unit = ing.unit || '';
+      name = ing.name || '';
+    } else {
+      const parsed = parseIngredientString(ing);
+      qty = parsed.qty != null ? parsed.qty : '';
+      unit = parsed.unit || '';
+      name = parsed.name;
+    }
     addRAIngredientRow(qty, unit, name);
   });
 
@@ -5755,6 +5597,14 @@ function loadRAExisting() {
 
   // Load notes
   document.getElementById('ra-notes').value = recipe.notes || '';
+
+  // Load sides & shake pairing (main/breakfast/lunch only)
+  if (['main','breakfast','lunch'].includes(raCategory)) {
+    const meal = MEALS.find(m => m.name === name);
+    raSides = new Set(meal ? (meal.sides || []) : []);
+    renderRASidesGrid();
+    renderRAShakeSummary(name);
+  }
 }
 
 function clearRAForm() {
@@ -5770,9 +5620,99 @@ function clearRAForm() {
   document.getElementById('ra-steps-list').innerHTML = '';
   document.getElementById('ra-notes').value = '';
   document.getElementById('ra-status').textContent = '';
+  raSides = new Set();
+  renderRASidesGrid();
+  renderRAShakeSummary(null);
   // Add one empty row of each
   addRAIngredient();
   addRAStep();
+}
+
+// ── RECIPE ADMIN: SIDES & SHAKE PAIRING (main/breakfast/lunch) ────────────────
+let raSides = new Set();
+
+// Case/wording-insensitive membership check — a meal's saved `sides` entry
+// might not exactly match ALL_SIDES's canonical string (older data, a stray
+// capitalization), which would otherwise silently show the chip as
+// unselected even though the meal really does have that side.
+function raSidesHas(canonicalSide) {
+  const target = canonicalSide.trim().toLowerCase();
+  for (const s of raSides) {
+    if (String(s).trim().toLowerCase() === target) return true;
+  }
+  return false;
+}
+function raSidesToggle(canonicalSide) {
+  const target = canonicalSide.trim().toLowerCase();
+  const existing = [...raSides].find(s => String(s).trim().toLowerCase() === target);
+  if (existing) raSides.delete(existing);
+  else raSides.add(canonicalSide);
+}
+
+function renderRASidesGrid() {
+  const grid = document.getElementById('ra-sides-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  ALL_SIDES.forEach(side => {
+    const isSelected = raSidesHas(side);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.style.cssText = `padding:6px 12px;border-radius:20px;border:1px solid ${isSelected?'var(--accent2)':'var(--border)'};background:${isSelected?'var(--accent2-light)':'var(--surface2)'};font-family:inherit;font-size:12px;color:${isSelected?'var(--accent2)':'var(--text2)'};cursor:pointer;`;
+    btn.textContent = side;
+    btn.onclick = () => {
+      raSidesToggle(side);
+      renderRASidesGrid();
+    };
+    grid.appendChild(btn);
+  });
+
+  // Quick links to edit the recipe/shopping ingredients of each side
+  // currently attached to this meal — without leaving this screen and
+  // re-picking it from the top-level "Edit existing" dropdown.
+  const editLinks = document.getElementById('ra-sides-edit-links');
+  if (editLinks) {
+    editLinks.innerHTML = '';
+    [...raSides].forEach(rawSide => {
+      const canonical = ALL_SIDES.find(s => s.toLowerCase() === String(rawSide).trim().toLowerCase()) || rawSide;
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.style.cssText = 'background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;padding:0;';
+      link.textContent = '✏️ Edit ' + canonical;
+      link.onclick = () => openSideAdminFor(canonical);
+      editLinks.appendChild(link);
+    });
+  }
+}
+
+function openSideAdminFor(sideName) {
+  openRecipeAdmin(sideName, 'side');
+}
+
+function renderRAShakeSummary(mealName) {
+  const el = document.getElementById('ra-shake-summary');
+  if (!el) return;
+  if (!mealName) { el.innerHTML = ''; return; }
+  const pairing = SHAKE_PAIRINGS[mealName];
+  const nameEsc = mealName.replace(/'/g, "\\'");
+  if (!pairing) {
+    el.innerHTML = `<span style="color:var(--text3);">No shake assigned.</span>
+      <button type="button" onclick="openShakeAdminFor('${nameEsc}')" style="margin-left:8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--text2);cursor:pointer;">+ Add shake</button>`;
+    return;
+  }
+  const ratingLabel = pairing.rating === 'hit' ? '✅ Active' : pairing.rating === 'miss' ? '❌ Miss' : '⏳ Testing';
+  el.innerHTML = `<span style="font-weight:500;color:var(--text);">${pairing.name}</span> <span style="color:var(--text3);">(${ratingLabel})</span>
+    <div style="margin-top:6px;display:flex;gap:6px;">
+      <button type="button" onclick="openShakeAdminFor('${nameEsc}')" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--text2);cursor:pointer;">✏️ Edit shake</button>
+      <button type="button" onclick="removeShakeForMeal('${nameEsc}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;">Remove</button>
+    </div>`;
+}
+
+function removeShakeForMeal(mealName) {
+  delete SHAKE_PAIRINGS[mealName];
+  buildShoppingList();
+  saveState();
+  renderRAShakeSummary(mealName);
+  renderWeek();
 }
 
 function addRAIngredient(qty, unit, name) {
@@ -5838,14 +5778,30 @@ function syncStructuredMealIngredients(name, formIngredients) {
     };
     return;
   }
-  const existing = STRUCTURED_MEALS[name].ingredients || (STRUCTURED_MEALS[name].ingredients = []);
+  // Fully reconcile 'simple' entries against the form — add, update, AND
+  // remove — instead of only ever appending. Append-only left orphaned
+  // entries with no way to delete them (e.g. an ingredient renamed in the
+  // form that no longer loosely-matches its old structured entry forked a
+  // second, permanent shopping-list item — the real cause of Roman Holiday's
+  // "Tomato juice" + "Tomatoes" duplicate). 'staple'/'viewqty' entries aren't
+  // represented in this form at all, so they're preserved untouched — and a
+  // form row that already matches one of them (e.g. the recipe's display
+  // ingredients list includes "1 tsp salt" for readability even though salt
+  // is tracked as an always-on-hand staple, not a shopping-list item) is
+  // skipped rather than forked into a second, purchasable copy.
+  const existing = STRUCTURED_MEALS[name].ingredients || [];
+  const preserved = existing.filter(e => e.type === 'staple' || e.type === 'viewqty');
+  const existingSimple = existing.filter(e => e.type === 'simple');
+  const matched = new Set();
+  const syncedSimple = [];
   formIngredients.forEach(ing => {
-    const match = existing.find(e => namesLooselyMatch(ing.name, e.name));
+    if (preserved.some(p => namesLooselyMatch(ing.name, p.name))) return;
+    const match = existingSimple.find(e => !matched.has(e) && namesLooselyMatch(ing.name, e.name));
     if (match) {
-      match.qty = ing.qty;
-      match.unit = ing.unit || '';
+      matched.add(match);
+      syncedSimple.push({ ...match, name: ing.name, qty: ing.qty, unit: ing.unit || '' });
     } else {
-      existing.push({
+      syncedSimple.push({
         type: 'simple',
         name: ing.name,
         qty: ing.qty,
@@ -5854,6 +5810,7 @@ function syncStructuredMealIngredients(name, formIngredients) {
       });
     }
   });
+  STRUCTURED_MEALS[name].ingredients = [...syncedSimple, ...preserved];
 }
 
 function saveRARecipe() {
@@ -5938,13 +5895,17 @@ function saveRARecipe() {
         name, prep, cost,
         mealType: raCategory,
         tier: recipe.tier,
-        sides: [],
+        sides: [...raSides],
         shake: 'auto',
         isLeftover: false,
       });
     } else {
       existingMeal.prep = prep;
       existingMeal.cost = cost;
+      existingMeal.sides = [...raSides];
+      // Flags this coded meal for the lightweight codedMealEdits save path
+      // (see saveState()) so the edit actually survives a reload.
+      if (existingMeal._coded) existingMeal._edited = true;
     }
   } else if (raCategory === 'side') {
     SIDE_RECIPES[name] = recipe;
@@ -6236,6 +6197,19 @@ function importData(input) {
         }
       });
     }
+    // Re-apply lightweight Recipe Admin overrides for coded meals — see
+    // saveState()'s codedMealEdits comment. (data.meals, restored above,
+    // already covers this for a proper "type:full" export; this only
+    // matters if importing a raw localStorage-shaped backup.)
+    if (data.codedMealEdits) {
+      Object.entries(data.codedMealEdits).forEach(([name, edits]) => {
+        const existing = MEALS.find(e => e.name === name);
+        if (existing) {
+          Object.assign(existing, edits);
+          existing._edited = true;
+        }
+      });
+    }
 
       // Import weekPlan — resolve by name first for cross-device compatibility
       if (data.weekPlan) {
@@ -6295,41 +6269,6 @@ function importData(input) {
   reader.readAsText(file);
 }
 
-// ── SETUP BANNER ─────────────────────────────────────────────────────────────────
-function checkBannerVisibility() {
-  const key = localStorage.getItem('nixon_api_key') || '';
-  const proxy = localStorage.getItem('nixon_proxy_url') || '';
-  const banner = document.getElementById('setup-banner');
-  if (banner) banner.style.display = (!key || !proxy) ? 'block' : 'none';
-}
-
-function saveBannerApiKey() {
-  const val = (document.getElementById('banner-api-key').value || '').trim();
-  if (!val) return;
-  localStorage.setItem('nixon_api_key', val);
-  document.getElementById('banner-api-key').value = '';
-  document.getElementById('banner-status').textContent = '✅ API key saved';
-}
-
-function saveBannerProxy() {
-  const val = (document.getElementById('banner-proxy-url').value || '').trim();
-  if (!val) return;
-  localStorage.setItem('nixon_proxy_url', val);
-  document.getElementById('banner-proxy-url').value = '';
-  document.getElementById('banner-status').textContent = '✅ Proxy URL saved';
-}
-
-function checkBannerSetup() {
-  const key = localStorage.getItem('nixon_api_key') || '';
-  const proxy = localStorage.getItem('nixon_proxy_url') || '';
-  const status = document.getElementById('banner-status');
-  if (!key && !proxy) { status.textContent = '❌ Both API key and proxy URL are required'; return; }
-  if (!key) { status.textContent = '❌ API key is missing'; return; }
-  if (!proxy) { status.textContent = '❌ Proxy URL is missing'; return; }
-  document.getElementById('setup-banner').style.display = 'none';
-  status.textContent = '';
-}
-
 // ── SEED RECIPES FROM SUGGESTIONS ────────────────────────────────────────────
 // Ensure every suggestion has a recipe entry so 📖 works when accepted
 SUGGESTIONS.forEach(sug => {
@@ -6354,7 +6293,6 @@ Object.entries(DEFAULT_AISLE_MAP).forEach(([k, v]) => {
 });
 dedupeItemAisleMap();
 migrateOldMealNames();
-checkBannerVisibility();
 renderBusyToggles();
 if (_savedOk && weekPlan.length > 0) {
   renderWeek();
@@ -6455,6 +6393,15 @@ renderHistory();
             <option value="$$$">$$$ (over $30)</option>
           </select>
         </div>
+      </div>
+      <div style="margin-top:12px;">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:6px;">Sides</div>
+        <div id="ra-sides-grid" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        <div id="ra-sides-edit-links" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:10px;"></div>
+      </div>
+      <div style="margin-top:12px;">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:6px;">Shake Pairing</div>
+        <div id="ra-shake-summary" style="font-size:13px;color:var(--text2);"></div>
       </div>
     </div>
 
@@ -6624,24 +6571,6 @@ renderHistory();
       <div class="admin-pref-row">
         <span class="admin-pref-label">Suggest new meal each week</span>
         <button id="pref-newMeal-btn" class="admin-toggle active" onclick="togglePref('newMeal')">ON</button>
-      </div>
-      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
-        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:4px;">Anthropic API Key</div>
-        <p style="font-size:12px;color:var(--text3);margin-bottom:8px;line-height:1.5;">Required for shake generation when running on your device. Get a key at console.anthropic.com. Stored only on this device.</p>
-        <div style="display:flex;gap:8px;">
-          <input id="api-key-input" type="password" class="add-input" style="flex:1;font-size:13px;" placeholder="sk-ant-..." value="">
-          <button class="btn-add" onclick="saveApiKey()">Save</button>
-        </div>
-        <div id="api-key-status" style="font-size:12px;margin-top:6px;color:var(--text3);"></div>
-      </div>
-      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">
-        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:4px;">Proxy URL <span style="font-weight:400;color:var(--text3);">(required for iPhone)</span></div>
-        <p style="font-size:12px;color:var(--text3);margin-bottom:8px;line-height:1.5;">Safari blocks direct API calls. Paste your Cloudflare Worker URL here. See setup instructions below.</p>
-        <div style="display:flex;gap:8px;">
-          <input id="proxy-url-input" type="text" class="add-input" style="flex:1;font-size:13px;" placeholder="https://your-worker.workers.dev">
-          <button class="btn-add" onclick="saveProxyUrl()">Save</button>
-        </div>
-        <div id="proxy-url-status" style="font-size:12px;margin-top:6px;color:var(--text3);"></div>
       </div>
       </div><!-- end preferences body -->
     </div>
