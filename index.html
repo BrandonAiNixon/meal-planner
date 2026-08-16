@@ -4507,7 +4507,6 @@ function openIngredientSource(item) {
     </div>`;
   } else if (source === 'side') {
     // Find which meals THIS WEEK use a side that contains this ingredient
-    const nameLower = safeStr(item.name).toLowerCase();
     const sources = [];
     weekPlan.forEach(day => {
       if (day.isSunday || day.mealIndex < 0) return;
@@ -4516,10 +4515,10 @@ function openIngredientSource(item) {
       const sides = day.customSides || meal.sides || [];
       sides.forEach(side => {
         const sideIngs = SIDE_INGREDIENTS[side] || [];
-        const found = sideIngs.some(ing => {
-          const ingLower = safeStr(ing).toLowerCase();
-          return ingLower.includes(nameLower) || nameLower.includes(ingLower.split(' ')[0]);
-        });
+        // Whole-word match (not raw substring containment) — otherwise e.g.
+        // "Tomato juice" would falsely claim credit for a plain "Tomato"
+        // line item just because it contains the word "tomato".
+        const found = sideIngs.some(ing => namesLooselyMatch(item.name, typeof ing === 'object' ? ing.name : ing));
         if (found) {
           const dayName = DAYS[day.date.getDay()];
           sources.push({ meal: meal.name, side, day: dayName });
@@ -4556,8 +4555,11 @@ function openIngredientSource(item) {
       </div>
     </div>`;
   } else {
-    // Meal ingredient — find which meals use this ingredient
-    const nameLower = safeStr(item.name).toLowerCase();
+    // Meal ingredient — find which meals use this ingredient. Whole-word
+    // match, not raw substring containment in either direction — a plain
+    // "Tomato" line item was falsely showing "Roman Holiday" as a source
+    // here just because Roman Holiday's real ingredient, "Tomato juice",
+    // contains the word "tomato" as a substring.
     const sources = [];
     weekPlan.forEach(day => {
       if (day.isSunday || day.mealIndex < 0) return;
@@ -4567,16 +4569,15 @@ function openIngredientSource(item) {
       const alreadyHave = sources.some(s => s.meal === meal.name);
       const structured = STRUCTURED_MEALS[meal.name];
       if (!alreadyHave && structured) {
-        const found = (structured.ingredients || []).some(ing => {
-          const ingName = safeStr(typeof ing === 'object' ? ing.name : ing).toLowerCase();
-          return ingName === nameLower || ingName.includes(nameLower) || nameLower.includes(ingName);
-        });
+        const found = (structured.ingredients || []).some(ing =>
+          namesLooselyMatch(item.name, typeof ing === 'object' ? ing.name : ing)
+        );
         if (found) sources.push({ meal: meal.name, day: dayName });
       }
       // Also check MEAL_INGREDIENTS legacy
       if (!sources.some(s => s.meal === meal.name)) {
         const legacyIngs = MEAL_INGREDIENTS[meal.name] || [];
-        const legacyFound = legacyIngs.some(ing => safeStr(ing).toLowerCase().includes(nameLower) || nameLower.includes(safeStr(ing).toLowerCase()));
+        const legacyFound = legacyIngs.some(ing => namesLooselyMatch(item.name, ing));
         if (legacyFound) sources.push({ meal: meal.name, day: dayName });
       }
     });
