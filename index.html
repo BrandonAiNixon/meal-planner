@@ -441,7 +441,7 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
 <script>
 // Bumped on every code change so Settings can show which build actually
 // loaded — the only way to tell a fresh deploy from a stale cached copy.
-const APP_VERSION = '2026.08.23.5';
+const APP_VERSION = '2026.08.23.6';
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
 
@@ -2122,6 +2122,7 @@ function cycleStaple(item) {
         section: section !== 'Pantry Staple' ? section : 'Needs Aisle',
         checked: false,
         source: 'pantry',
+        buyQty: 1,
       });
     }
     renderShoppingList();
@@ -3599,6 +3600,10 @@ function buildShoppingList() {
     shoppingItems.filter(i => i.source !== 'manual' && i.checked)
       .map(i => safeStr(i.name).toLowerCase().replace(/[^a-z]/g,''))
   );
+  // Preserve manually-adjusted buy quantities for non-manual items across rebuilds
+  const buyQtyMap = new Map();
+  shoppingItems.filter(i => i.source !== 'manual' && i.buyQty && i.buyQty !== 1)
+    .forEach(i => buyQtyMap.set(safeStr(i.name).toLowerCase().replace(/[^a-z]/g,''), i.buyQty));
   shoppingItems = [];
   const added = new Set();
   // Pre-populate added set with manual item keys so they don't get duplicated
@@ -3647,12 +3652,12 @@ function buildShoppingList() {
       if (!existing) {
         added.add(key);
         const section = ing.section || itemSection(ing.name);
-        shoppingItems.push({ name: safeStr(ing.name), qty: ing.qty, unit: ing.unit, section, checked: false, source: 'meal' });
+        shoppingItems.push({ name: safeStr(ing.name), qty: ing.qty, unit: ing.unit, section, checked: false, source: 'meal', buyQty: 1 });
       } else if (existing.unit === ing.unit) {
         if (existing.qty != null && ing.qty != null) existing.qty += ing.qty;
       } else {
         const section = ing.section || itemSection(ing.name);
-        shoppingItems.push({ name: safeStr(ing.name), qty: ing.qty, unit: ing.unit, section, checked: false, source: 'meal' });
+        shoppingItems.push({ name: safeStr(ing.name), qty: ing.qty, unit: ing.unit, section, checked: false, source: 'meal', buyQty: 1 });
       }
     });
 
@@ -3672,7 +3677,7 @@ function buildShoppingList() {
         const key = ingredientDedupeKey(ingStr);
         if (!added.has(key)) {
           added.add(key);
-          shoppingItems.push({ name: ingStr, qty: ingQty, unit: ingUnit, section: itemSection(ingStr), checked: false, source: 'side' });
+          shoppingItems.push({ name: ingStr, qty: ingQty, unit: ingUnit, section: itemSection(ingStr), checked: false, source: 'side', buyQty: 1 });
         }
       });
     });
@@ -3694,11 +3699,11 @@ function buildShoppingList() {
           : null;
         if (!existingDessertItem) {
           added.add(key);
-          shoppingItems.push({ name: ingStr, qty: ingQty, unit: ingUnit, section: itemSection(ingStr), checked: false, source: 'dessert' });
+          shoppingItems.push({ name: ingStr, qty: ingQty, unit: ingUnit, section: itemSection(ingStr), checked: false, source: 'dessert', buyQty: 1 });
         } else if (existingDessertItem.unit === ingUnit) {
           if (existingDessertItem.qty != null && ingQty != null) existingDessertItem.qty += ingQty;
         } else {
-          shoppingItems.push({ name: ingStr, qty: ingQty, unit: ingUnit, section: itemSection(ingStr), checked: false, source: 'dessert' });
+          shoppingItems.push({ name: ingStr, qty: ingQty, unit: ingUnit, section: itemSection(ingStr), checked: false, source: 'dessert', buyQty: 1 });
         }
       });
     });
@@ -3764,6 +3769,7 @@ function buildShoppingList() {
             source: 'shake',
             shakeFor: meal.name,
             vqKey: vqKey,
+            buyQty: 1,
           });
         } else if (existingForShake.unit === ingUnit) {
           if (existingForShake.qty != null && ingQty != null) existingForShake.qty += ingQty;
@@ -3777,6 +3783,7 @@ function buildShoppingList() {
             source: 'shake',
             shakeFor: meal.name,
             vqKey: vqKey,
+            buyQty: 1,
           });
         }
       });
@@ -3797,6 +3804,7 @@ function buildShoppingList() {
           section: section !== 'Pantry Staple' ? section : 'Needs Aisle',
           checked: false,
           source: 'pantry',
+          buyQty: 1,
         });
       }
     }
@@ -3836,6 +3844,7 @@ function buildShoppingList() {
         viewQty: data.sources.length > 1,
         viewQtySources: data.sources.length > 1 ? data.sources : null,
         note: data.sources[0] && data.sources[0].note ? data.sources[0].note : null,
+        buyQty: 1,
       });
     }
   });
@@ -3849,16 +3858,18 @@ function buildShoppingList() {
       if (!added.has(key)) {
         added.add(key);
         // qty/unit always present (null/'') on every shoppingItems entry, matching every other source
-        shoppingItems.push({ name: item + ' (restock)', qty: null, unit: '', section: itemSection(item), checked: false, source: 'pantry' });
+        shoppingItems.push({ name: item + ' (restock)', qty: null, unit: '', section: itemSection(item), checked: false, source: 'pantry', buyQty: 1 });
       }
     }
   });
 
-  // Restore checked (cart) state for items that survived the rebuild
+  // Restore checked (cart) state and manually-adjusted buy quantities for
+  // items that survived the rebuild
   shoppingItems.forEach(i => {
-    if (i.source === 'manual') return; // manual items already retain their own checked state
+    if (i.source === 'manual') return; // manual items already retain their own state
     const key = safeStr(i.name).toLowerCase().replace(/[^a-z]/g,'');
     if (checkedKeys.has(key)) i.checked = true;
+    if (buyQtyMap.has(key)) i.buyQty = buyQtyMap.get(key);
   });
 
   renderShoppingList();
@@ -3974,6 +3985,38 @@ function renderShoppingList() {
         vBtn.onclick = (e) => { e.stopPropagation(); openViewQty(item); };
         el.appendChild(vBtn);
       }
+      // Buy-quantity stepper — separate from any recipe qty/unit above.
+      // Defaults to 1 on every item; lets the user manually consolidate
+      // duplicate list entries (e.g. two "Caesar salad kit" rows from
+      // different meals) by deleting one and bumping this to 2 on the other.
+      if (item.buyQty == null) item.buyQty = 1;
+      const buyQtyControls = document.createElement('div');
+      buyQtyControls.style.cssText = 'display:flex;align-items:center;gap:3px;';
+      const bqMinus = document.createElement('button');
+      bqMinus.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:4px;width:22px;height:22px;font-size:13px;line-height:1;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center;';
+      bqMinus.textContent = '−';
+      bqMinus.title = 'Decrease buy quantity';
+      bqMinus.onclick = (e) => {
+        e.stopPropagation();
+        if (item.buyQty > 1) item.buyQty -= 1;
+        saveState(); renderShoppingList();
+      };
+      const bqDisplay = document.createElement('span');
+      bqDisplay.style.cssText = 'font-size:12px;font-weight:600;min-width:16px;text-align:center;color:' + (item.buyQty > 1 ? 'var(--accent2)' : 'var(--text3)') + ';';
+      bqDisplay.textContent = '×' + item.buyQty;
+      const bqPlus = document.createElement('button');
+      bqPlus.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:4px;width:22px;height:22px;font-size:13px;line-height:1;cursor:pointer;color:var(--text);display:flex;align-items:center;justify-content:center;';
+      bqPlus.textContent = '+';
+      bqPlus.title = 'Increase buy quantity';
+      bqPlus.onclick = (e) => {
+        e.stopPropagation();
+        item.buyQty = (item.buyQty || 1) + 1;
+        saveState(); renderShoppingList();
+      };
+      buyQtyControls.appendChild(bqMinus);
+      buyQtyControls.appendChild(bqDisplay);
+      buyQtyControls.appendChild(bqPlus);
+      el.appendChild(buyQtyControls);
       // Qty +/- controls for manual items
       if (item.source === 'manual') {
         const qtyControls = document.createElement('div');
@@ -4065,7 +4108,7 @@ function renderShoppingList() {
       el.className = 'shop-item checked';
       const nameEl = document.createElement('span');
       nameEl.className = 'shop-item-name';
-      nameEl.textContent = item.name;
+      nameEl.textContent = item.name + (item.buyQty > 1 ? ' ×' + item.buyQty : '');
       const checkEl = document.createElement('div');
       checkEl.className = 'check-circle';
       checkEl.innerHTML = '<span class="check-icon">✓</span>';
@@ -4094,7 +4137,7 @@ function addManualItem() {
   const qty = qtyInput && qtyInput.value ? parseFloat(qtyInput.value) : null;
   const unit = unitInput && unitInput.value.trim() ? unitInput.value.trim() : '';
   const section = itemSection(val);
-  shoppingItems.push({ name: val, qty, unit, section, checked: false, source: 'manual' });
+  shoppingItems.push({ name: val, qty, unit, section, checked: false, source: 'manual', buyQty: 1 });
   input.value = '';
   if (qtyInput) qtyInput.value = '';
   if (unitInput) unitInput.value = '';
