@@ -441,7 +441,7 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
 <script>
 // Bumped on every code change so Settings can show which build actually
 // loaded — the only way to tell a fresh deploy from a stale cached copy.
-const APP_VERSION = '2026.08.23.1';
+const APP_VERSION = '2026.08.23.2';
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
 
@@ -1152,7 +1152,7 @@ const PANTRY_ITEMS = [
   'Panko crumbs','Parmesan cheese','Pam spray','Aluminum foil','Ziplock bags',
 ];
 
-const ALL_SIDES = [
+const ALL_SIDES_BASE = [
   'Chips','Chips & salsa','Baked beans','Potato salad','Mac salad',
   'Caesar salad','Wedge salad','Rice','Waffle fries','Seasoned fries',
   'Sweet potato fries','BBQ pork fried rice','Mac & cheese','Asparagus',
@@ -1263,6 +1263,16 @@ const SIDE_RECIPES = {
     ],
   },
 };
+
+// Curated base order, plus any side recipes added later (via "New Side" or
+// import) that aren't in the base list — appended alphabetically so newly
+// added sides actually show up in the side-picker grids.
+function getAllSides() {
+  const extra = Object.keys(SIDE_RECIPES)
+    .filter(name => !ALL_SIDES_BASE.some(s => s.toLowerCase() === name.toLowerCase()))
+    .sort((a, b) => a.localeCompare(b));
+  return [...ALL_SIDES_BASE, ...extra];
+}
 
 
 const DESSERTS = {
@@ -5228,7 +5238,7 @@ function renderComposerMain() {
 function renderComposerSides() {
   const grid = document.getElementById('composer-sides-grid');
   grid.innerHTML = '';
-  ALL_SIDES.forEach(side => {
+  getAllSides().forEach(side => {
     const isSelected = composerState.sides.has(side);
     const btn = document.createElement('button');
     btn.style.cssText = `padding:8px 14px;border-radius:20px;border:1px solid ${isSelected?'var(--accent2)':'var(--border)'};background:${isSelected?'var(--accent2-light)':'var(--surface2)'};font-family:inherit;font-size:13px;color:${isSelected?'var(--accent2)':'var(--text2)'};cursor:pointer;min-height:36px;`;
@@ -5734,7 +5744,7 @@ function renderRASidesGrid() {
   const grid = document.getElementById('ra-sides-grid');
   if (!grid) return;
   grid.innerHTML = '';
-  ALL_SIDES.forEach(side => {
+  getAllSides().forEach(side => {
     const isSelected = raSidesHas(side);
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -5754,7 +5764,7 @@ function renderRASidesGrid() {
   if (editLinks) {
     editLinks.innerHTML = '';
     [...raSides].forEach(rawSide => {
-      const canonical = ALL_SIDES.find(s => s.toLowerCase() === String(rawSide).trim().toLowerCase()) || rawSide;
+      const canonical = getAllSides().find(s => s.toLowerCase() === String(rawSide).trim().toLowerCase()) || rawSide;
       const link = document.createElement('button');
       link.type = 'button';
       link.style.cssText = 'background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;padding:0;';
