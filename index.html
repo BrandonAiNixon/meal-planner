@@ -441,7 +441,7 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
 <script>
 // Bumped on every code change so Settings can show which build actually
 // loaded — the only way to tell a fresh deploy from a stale cached copy.
-const APP_VERSION = '2026.08.23.3';
+const APP_VERSION = '2026.08.23.5';
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
 
@@ -3878,9 +3878,17 @@ function renderShoppingList() {
 
   // Filter excluded items; filter pantry staples unless marked Low
   shoppingItems = shoppingItems.filter(i => {
-    if (i.section === 'Excluded') return false;
+    // Manual and pantry-restock items must never be silently dropped just
+    // because itemSection()'s fuzzy whole-word matching happens to guess
+    // "Excluded" for them (e.g. a generic "ice" -> Excluded aisle mapping
+    // matching inside "Ice Cream - Mint chocolate chip", which is a totally
+    // different product) — a user-added item or a pantry item they
+    // explicitly marked Low must always show, matching the comment below.
+    // Checking these sources before the Excluded check (rather than after)
+    // is what makes that guarantee actually hold.
     if (i.source === 'manual') return true;
     if (i.source === 'pantry') return true; // low pantry items always show
+    if (i.section === 'Excluded') return false;
 
     const iName = safeStr(i.name);
     const isFresh = (FRESH_SIGNALS.test(iName) || PRODUCE_SIGNALS.test(iName)) && !DRIED_SIGNALS.test(iName);
@@ -5729,6 +5737,8 @@ function loadRAExisting() {
   raEditingName = name;
   document.getElementById('ra-name').value = name;
   document.getElementById('ra-modal-title').textContent = 'Edit Recipe';
+  const deleteRow = document.getElementById('ra-delete-row');
+  if (deleteRow) deleteRow.style.display = ['main','breakfast','lunch','side','dessert'].includes(raCategory) ? 'block' : 'none';
 
   let recipe = null;
   if (raCategory === 'main') recipe = RECIPES[name];
@@ -5819,6 +5829,8 @@ function loadRAExisting() {
 function clearRAForm() {
   raEditingName = null;
   document.getElementById('ra-modal-title').textContent = 'Add / Edit Recipe';
+  const deleteRow = document.getElementById('ra-delete-row');
+  if (deleteRow) deleteRow.style.display = 'none';
   document.getElementById('ra-existing-select').value = '';
   const raShakeMealSel = document.getElementById('ra-shake-meal');
   if (raShakeMealSel) raShakeMealSel.value = '';
@@ -5979,6 +5991,108 @@ function removeShakeForMeal(mealName) {
   saveState();
   renderRAShakeSummary(mealName);
   renderWeek();
+}
+
+// ── RECIPE ADMIN: DELETE ───────────────────────────────────────────────────────
+function confirmDeleteRARecipe() {
+  if (!raEditingName) return;
+  const name = raEditingName;
+  const category = raCategory;
+
+  let refCount = 0;
+  if (category === 'dessert') {
+    refCount = MEALS.filter(m => (m.desserts || []).includes(name)).length
+      + weekPlan.filter(d => (d.customDesserts || []).includes(name)).length;
+  } else if (category === 'side') {
+    refCount = MEALS.filter(m => (m.sides || []).includes(name)).length
+      + weekPlan.filter(d => (d.customSides || []).includes(name)).length;
+  } else if (['main','breakfast','lunch'].includes(category)) {
+    refCount = weekPlan.filter(d => MEALS[d.mealIndex] && MEALS[d.mealIndex].name === name).length;
+  }
+
+  const msg = refCount > 0
+    ? `"${name}" is currently used in ${refCount} place${refCount === 1 ? '' : 's'} (meals, days, or the shopping list). Deleting it will remove those references too. This can't be undone.`
+    : `"${name}" isn't currently used anywhere. This can't be undone.`;
+
+  document.getElementById('admin-confirm-title').textContent = 'Delete "' + name + '"?';
+  document.getElementById('admin-confirm-msg').textContent = msg;
+  document.getElementById('admin-confirm-ok').onclick = () => {
+    deleteRARecipe(name, category);
+    closeModal('admin-confirm-modal');
+  };
+  document.getElementById('admin-confirm-modal').classList.add('open');
+}
+
+function deleteRARecipe(name, category) {
+  if (category === 'dessert') {
+    delete DESSERTS[name];
+    MEALS.forEach(m => {
+      if (m.desserts && m.desserts.includes(name)) {
+        m.desserts = m.desserts.filter(d => d !== name);
+        if (m._coded) m._edited = true;
+      }
+    });
+    weekPlan.forEach(day => {
+      if (day.customDesserts && day.customDesserts.includes(name)) {
+        day.customDesserts = day.customDesserts.filter(d => d !== name);
+      }
+    });
+  } else if (category === 'side') {
+    delete SIDE_RECIPES[name];
+    delete SIDE_INGREDIENTS[name];
+    MEALS.forEach(m => {
+      if (m.sides && m.sides.includes(name)) {
+        m.sides = m.sides.filter(s => s !== name);
+        if (m._coded) m._edited = true;
+      }
+    });
+    weekPlan.forEach(day => {
+      if (day.customSides && day.customSides.includes(name)) {
+        day.customSides = day.customSides.filter(s => s !== name);
+      }
+    });
+  } else if (['main','breakfast','lunch'].includes(category)) {
+    // MEALS is an array — weekPlan/mealHistory reference entries by numeric
+    // index, so removing one has to shift every index after it too, or
+    // every day/history entry after the deleted meal would silently point
+    // at the wrong meal.
+    const idx = MEALS.findIndex(m => m.name === name);
+    if (idx !== -1) {
+      delete RECIPES[name];
+      delete STRUCTURED_MEALS[name];
+      delete SHAKE_PAIRINGS[name];
+      MEALS.splice(idx, 1);
+      weekPlan.forEach(day => {
+        if (day.mealIndex === idx) {
+          day.mealIndex = -1;
+          day.customSides = [];
+          day.customDesserts = [];
+        } else if (day.mealIndex > idx) {
+          day.mealIndex -= 1;
+        }
+      });
+      mealHistory.forEach(week => {
+        for (let i = week.length - 1; i >= 0; i--) {
+          if (week[i] === idx) week.splice(i, 1);
+          else if (week[i] > idx) week[i] -= 1;
+        }
+      });
+    }
+  }
+
+  buildShoppingList();
+  saveState();
+  renderWeek();
+  renderSuggestion();
+  clearRAForm();
+  populateRASelect();
+  document.getElementById('ra-status').textContent = '🗑️ "' + name + '" deleted';
+  document.getElementById('ra-status').style.color = 'var(--red)';
+  setTimeout(() => {
+    closeModal('recipe-admin-modal');
+    const adminOverlay = document.getElementById('admin-overlay');
+    if (adminOverlay) { adminOverlay.style.display = 'block'; populateAdminRecipeSelect(); updateAdminCounts(); }
+  }, 1200);
 }
 
 function addRAIngredient(qty, unit, name) {
@@ -6146,16 +6260,40 @@ function saveRARecipe() {
     return;
   }
 
+  // A rename (editing an existing recipe and changing its name) used to
+  // silently leave the old entry behind under its old name, because saving
+  // always writes to a NEW key derived from the current name field instead
+  // of updating the entry that was actually loaded. That's what produced
+  // duplicate recipes (e.g. two "Vanilla Ice Cream" desserts) any time a
+  // rename was attempted. Detect it and move/clean up the old key instead.
+  const isRename = raEditingName && raEditingName !== name;
+
   if (raCategory === 'main' || raCategory === 'breakfast' || raCategory === 'lunch') {
     const prep = document.getElementById('ra-prep').value;
     const cost = document.getElementById('ra-cost').value;
     recipe.prep = prep;
     recipe.cost = cost;
+
+    // Find the meal being edited by its ORIGINAL name, not the (possibly
+    // just-changed) name field, so a rename updates it in place.
+    const existingMeal = raEditingName ? MEALS.find(m => m.name === raEditingName) : null;
+
+    if (isRename) {
+      delete RECIPES[raEditingName];
+      if (STRUCTURED_MEALS[raEditingName]) {
+        STRUCTURED_MEALS[name] = STRUCTURED_MEALS[raEditingName];
+        delete STRUCTURED_MEALS[raEditingName];
+      }
+      if (SHAKE_PAIRINGS[raEditingName]) {
+        SHAKE_PAIRINGS[name] = SHAKE_PAIRINGS[raEditingName];
+        delete SHAKE_PAIRINGS[raEditingName];
+      }
+      weekPlan.forEach(day => { if (day.mealName === raEditingName) day.mealName = name; });
+    }
+
     RECIPES[name] = recipe;
     syncStructuredMealIngredients(name, ingredients);
 
-    // If new meal, add to MEALS array
-    const existingMeal = MEALS.find(m => m.name === name);
     if (!existingMeal) {
       MEALS.push({
         name, prep, cost,
@@ -6167,6 +6305,7 @@ function saveRARecipe() {
         isLeftover: false,
       });
     } else {
+      existingMeal.name = name;
       existingMeal.prep = prep;
       existingMeal.cost = cost;
       existingMeal.sides = [...raSides];
@@ -6176,6 +6315,21 @@ function saveRARecipe() {
       if (existingMeal._coded) existingMeal._edited = true;
     }
   } else if (raCategory === 'side') {
+    if (isRename) {
+      delete SIDE_RECIPES[raEditingName];
+      delete SIDE_INGREDIENTS[raEditingName];
+      MEALS.forEach(m => {
+        if (m.sides && m.sides.includes(raEditingName)) {
+          m.sides = m.sides.map(s => s === raEditingName ? name : s);
+          if (m._coded) m._edited = true;
+        }
+      });
+      weekPlan.forEach(day => {
+        if (day.customSides && day.customSides.includes(raEditingName)) {
+          day.customSides = day.customSides.map(s => s === raEditingName ? name : s);
+        }
+      });
+    }
     SIDE_RECIPES[name] = recipe;
     // Also update SIDE_INGREDIENTS if ingredients provided — keep the full
     // {qty, unit, name} objects (matching how Main/Breakfast/Lunch recipes
@@ -6185,8 +6339,26 @@ function saveRARecipe() {
       SIDE_INGREDIENTS[name] = ingredients;
     }
   } else if (raCategory === 'dessert') {
+    if (isRename) {
+      delete DESSERTS[raEditingName];
+      MEALS.forEach(m => {
+        if (m.desserts && m.desserts.includes(raEditingName)) {
+          m.desserts = m.desserts.map(d => d === raEditingName ? name : d);
+          if (m._coded) m._edited = true;
+        }
+      });
+      weekPlan.forEach(day => {
+        if (day.customDesserts && day.customDesserts.includes(raEditingName)) {
+          day.customDesserts = day.customDesserts.map(d => d === raEditingName ? name : d);
+        }
+      });
+    }
     DESSERTS[name] = recipe;
   }
+
+  // Keep raEditingName in sync so a follow-up action (e.g. Delete) before
+  // this modal closes targets the renamed entry, not the stale old name.
+  if (isRename) raEditingName = name;
 
   // Save to localStorage
   buildShoppingList();
@@ -6198,6 +6370,7 @@ function saveRARecipe() {
   // If it's a new meal, refresh the plan UI
   if (raCategory === 'main') {
     renderSuggestion();
+    renderWeek();
   }
 
   // Reopen admin after a brief delay so user sees the success message
@@ -6732,6 +6905,9 @@ renderHistory();
       <textarea id="ra-notes" style="width:100%;min-height:70px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;resize:vertical;box-sizing:border-box;" placeholder="Tips, substitutions, variations..."></textarea>
     </div>
 
+    <div id="ra-delete-row" style="display:none;margin-bottom:8px;">
+      <button type="button" onclick="confirmDeleteRARecipe()" style="width:100%;background:none;border:1px solid var(--red);border-radius:var(--radius-sm);padding:10px;font-family:inherit;font-size:14px;font-weight:500;color:var(--red);cursor:pointer;">🗑 Delete Recipe</button>
+    </div>
     <div style="display:flex;gap:8px;">
       <button class="btn-skip" style="flex:1;" onclick="closeRAAndReturnToAdmin()">Cancel</button>
       <button class="btn-accept" style="flex:1;" onclick="saveRARecipe()">Save Recipe</button>
