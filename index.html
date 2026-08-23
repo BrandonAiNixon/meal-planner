@@ -1795,6 +1795,19 @@ function dedupePantryStaples() {
   });
 }
 
+// Merge loaded/imported store sections into the current list by id, instead
+// of replacing it outright. A wholesale replace silently dropped any section
+// (and every item filed under it, since aisle rendering only ever iterates
+// storeSections) that existed locally but wasn't in the loaded data — e.g. a
+// custom aisle added since the last export, or one from a version whose
+// default aisle list has since changed. Loaded entries win for shared ids;
+// anything local-only is kept, in its original position.
+function mergeStoreSections(newSections) {
+  const byId = new Map(storeSections.map(s => [s.id, s]));
+  newSections.forEach(s => byId.set(s.id, s));
+  storeSections = [...byId.values()];
+}
+
 function getSectionOrder(sectionName) {
   const idx = storeSections.findIndex(s => s.name === sectionName);
   return idx === -1 ? 999 : idx;
@@ -1884,7 +1897,10 @@ function loadState() {
     }
     if (data.busyDays) busyDays = new Set(data.busyDays);
     if (data.shoppingItems) shoppingItems = data.shoppingItems;
-    if (data.pantryState) pantryState = data.pantryState;
+    // Merge, don't replace — a wholesale replace here dropped any pantry
+    // status the loaded data didn't happen to have a key for (e.g. an item
+    // marked stocked/low after the last save that predates this load).
+    if (data.pantryState) Object.assign(pantryState, data.pantryState);
     if (data.pantryStaples) {
       // Merge saved staples with defaults — union of both
       data.pantryStaples.forEach(s => pantryStaples.add(s));
@@ -1948,7 +1964,7 @@ function loadState() {
     dedupeItemAisleMap();
     dedupePantryStaples();
     if (data.storeSections) {
-      storeSections = data.storeSections;
+      mergeStoreSections(data.storeSections);
       // Ensure special sections always exist
       const specialSections = [
         { id:'unassigned', name:'Needs Aisle', type:'unassigned' },
@@ -2913,7 +2929,7 @@ const STRUCTURED_MEALS = {
       { type:'simple', name:'Tostada shells', qty:4, unit:'whole', section:'Aisle 4' },
       { type:'simple', name:'Sour cream', qty:1, unit:'cup', section:'Dairy' },
       { type:'simple', name:'Iceberg lettuce', qty:1, unit:'head', section:'Produce' },
-      { type:'simple', name:'Tomato', qty:2, unit:'whole', section:'Produce' },
+      { type:'simple', name:'Tomato', qty:1, unit:'whole', section:'Produce' },
       { type:'simple', name:'Mexican cheese blend shredded', qty:2, unit:'cup', section:'Dairy' },
       { type:'staple', name:'Vegetable oil' },
     ]
@@ -3479,6 +3495,61 @@ function parseIngredientString(str) {
   name = name.replace(/,\s*$/, '').trim();
   if (!name) return { qty: null, unit: '', name: s };
   return { qty, unit, name };
+}
+
+// Flags the exact failure mode that caused Crunch Wraps to shop for 2 whole
+// tomatoes when the recipe only needed about a cup diced: RECIPES (the
+// display/cooking-instructions ingredient list) and STRUCTURED_MEALS (the
+// separate, hidden list that actually drives the shopping list) can drift
+// apart silently because nothing keeps them in sync. This doesn't try to
+// know the "correct" quantity — only a human who cooks the recipe can judge
+// that — it just surfaces cases where the two lists disagree about whether
+// an ingredient is measured by volume (cups/tbsp/tsp) or bought by the piece
+// (whole/head/clove/stalk) at a quantity of 2+, which is the specific shape
+// of guess that's easy to get wrong when converting one into the other.
+const RA_VOLUME_UNITS = new Set(['cup','cups','tbsp','tablespoon','tablespoons','tsp','teaspoon','teaspoons']);
+const RA_WHOLE_COUNT_UNITS = new Set(['whole','head','heads','clove','cloves','stalk','stalks','sprig','sprigs','bunch','bundle','']);
+
+// namesLooselyMatch (used for pantry/sync matching elsewhere) is deliberately
+// strict — it won't treat "Celery" and "chopped celery" as the same
+// ingredient, to avoid silently merging genuinely different products. That
+// strictness is wrong for this advisory-only check, where missing a real
+// mismatch is worse than an occasional false positive (a quick glance costs
+// nothing), so prep-state words get stripped here too before comparing.
+const RA_PREP_WORDS = new Set(['chopped','diced','minced','sliced','grated','shredded','crushed','cubed','halved','quartered','trimmed','peeled','cored','seeded','sliced']);
+function raLooseNameMatch(a, b) {
+  const wa = coreIngredientWords(a).filter(w => !RA_PREP_WORDS.has(w));
+  const wb = coreIngredientWords(b).filter(w => !RA_PREP_WORDS.has(w));
+  if (wa.length === 0 || wb.length === 0) return false;
+  return wa.join(' ') === wb.join(' ');
+}
+
+function checkRAIngredientMismatches(name) {
+  const warnEl = document.getElementById('ra-mismatch-warning');
+  if (!warnEl) return;
+  warnEl.innerHTML = '';
+  const recipe = RECIPES[name];
+  const structured = STRUCTURED_MEALS[name];
+  if (!recipe || !structured) return;
+
+  const parsedRecipeIngs = (recipe.ingredients || []).map(ing =>
+    (typeof ing === 'object' && ing !== null) ? ing : parseIngredientString(ing)
+  );
+
+  const warnings = [];
+  (structured.ingredients || []).filter(e => e.type === 'simple').forEach(se => {
+    const match = parsedRecipeIngs.find(pr => pr.name && raLooseNameMatch(se.name, pr.name));
+    if (!match || match.qty == null || se.qty == null) return;
+    const seUnit = (se.unit || '').toLowerCase();
+    const prUnit = (match.unit || '').toLowerCase();
+    if (RA_VOLUME_UNITS.has(prUnit) && RA_WHOLE_COUNT_UNITS.has(seUnit) && se.qty >= 2) {
+      warnings.push(`Recipe calls for ${match.qty} ${match.unit} ${match.name} — shopping list buys ${se.qty} ${se.unit || ''} ${se.name}. Worth double-checking the quantity.`);
+    }
+  });
+
+  if (warnings.length > 0) {
+    warnEl.innerHTML = '<div style="background:var(--amber-light);border:1px solid var(--amber);border-radius:6px;padding:8px 10px;font-size:12px;color:var(--text2);margin-top:8px;line-height:1.5;">⚠️ ' + warnings.join('<br>⚠️ ') + '</div>';
+  }
 }
 
 // Whole-word substring match — true if `needle` appears in `haystack` bounded
@@ -5606,6 +5677,8 @@ function loadRAExisting() {
     renderRASidesGrid();
     renderRAShakeSummary(name);
   }
+
+  checkRAIngredientMismatches(name);
 }
 
 function clearRAForm() {
@@ -5624,6 +5697,8 @@ function clearRAForm() {
   raSides = new Set();
   renderRASidesGrid();
   renderRAShakeSummary(null);
+  const warnEl = document.getElementById('ra-mismatch-warning');
+  if (warnEl) warnEl.innerHTML = '';
   // Add one empty row of each
   addRAIngredient();
   addRAStep();
@@ -6244,12 +6319,17 @@ function importData(input) {
       }
 
       // ── Pantry & Aisles ──────────────────────────────────────────────────
-      if (data.pantryState) pantryState = data.pantryState;
+      // Merge, don't replace — a wholesale replace here dropped any pantry
+      // status or aisle/section this browser already had that the imported
+      // file simply didn't happen to include (e.g. added after that export
+      // was taken), which is exactly what made items look like they'd
+      // vanished from the pantry or lost their aisle after importing.
+      if (data.pantryState) Object.assign(pantryState, data.pantryState);
       if (data.pantryStaples) data.pantryStaples.forEach(s => pantryStaples.add(s));
       if (data.itemAisleMap) Object.assign(itemAisleMap, data.itemAisleMap);
       dedupeItemAisleMap();
       dedupePantryStaples();
-      if (data.storeSections) storeSections = data.storeSections;
+      if (data.storeSections) mergeStoreSections(data.storeSections);
       if (data.excludedItems) data.excludedItems.forEach(i => excludedItems.add(i));
 
       // ── Settings ────────────────────────────────────────────────────────
@@ -6429,6 +6509,7 @@ renderHistory();
         <button onclick="addRAIngredient()" style="background:var(--accent);color:white;border:none;border-radius:20px;padding:3px 12px;font-size:12px;font-weight:500;cursor:pointer;">+ Add</button>
       </div>
       <div id="ra-ingredients-list"></div>
+      <div id="ra-mismatch-warning"></div>
     </div>
 
     <!-- Steps -->
