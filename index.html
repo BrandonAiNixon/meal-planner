@@ -441,7 +441,7 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
 <script>
 // Bumped on every code change so Settings can show which build actually
 // loaded — the only way to tell a fresh deploy from a stale cached copy.
-const APP_VERSION = '2026.08.23.6';
+const APP_VERSION = '2026.08.23.7';
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
 
@@ -1814,12 +1814,18 @@ function dedupePantryStaples() {
 // (and every item filed under it, since aisle rendering only ever iterates
 // storeSections) that existed locally but wasn't in the loaded data — e.g. a
 // custom aisle added since the last export, or one from a version whose
-// default aisle list has since changed. Loaded entries win for shared ids;
-// anything local-only is kept, in its original position.
+// default aisle list has since changed. Loaded data wins for both values and
+// order on shared ids — otherwise this runs on every page load (not just
+// import) and any manual reordering of a default-coded section (e.g. via the
+// admin store layout) would silently revert to DEFAULT_STORE_SECTIONS' order
+// on the very next reload. Anything local-only (not present in the loaded
+// data at all) is appended after, so nothing gets dropped.
 function mergeStoreSections(newSections) {
   const byId = new Map(storeSections.map(s => [s.id, s]));
-  newSections.forEach(s => byId.set(s.id, s));
-  storeSections = [...byId.values()];
+  const newIds = new Set(newSections.map(s => s.id));
+  const merged = newSections.map(s => ({ ...byId.get(s.id), ...s }));
+  const localOnly = storeSections.filter(s => !newIds.has(s.id));
+  storeSections = [...merged, ...localOnly];
 }
 
 function getSectionOrder(sectionName) {
