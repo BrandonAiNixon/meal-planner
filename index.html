@@ -441,7 +441,7 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
 <script>
 // Bumped on every code change so Settings can show which build actually
 // loaded — the only way to tell a fresh deploy from a stale cached copy.
-const APP_VERSION = '2026.08.23.2';
+const APP_VERSION = '2026.08.23.3';
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
 
@@ -1854,7 +1854,7 @@ function saveState() {
       // Recipe Admin get a lightweight override entry here (see saveRARecipe,
       // which flags a coded meal `_edited: true` the moment it's changed).
       codedMealEdits: Object.fromEntries(
-        MEALS.filter(m => m._coded && m._edited).map(m => [m.name, { sides: m.sides, prep: m.prep, cost: m.cost }])
+        MEALS.filter(m => m._coded && m._edited).map(m => [m.name, { sides: m.sides, desserts: m.desserts, prep: m.prep, cost: m.cost }])
       ),
       // Recipe Admin edits to these were previously never persisted here at all —
       // they only survived within the current tab's memory until reload, silently
@@ -2455,12 +2455,15 @@ function renderWeek() {
 
     const effectiveSides = day.customSides || safeMeal.sides || [];
     const sidesStr = effectiveSides.length > 0 ? effectiveSides.join(' · ') : '';
+    const effectiveDesserts = day.customDesserts || safeMeal.desserts || [];
+    const dessertsStr = effectiveDesserts.length > 0 ? effectiveDesserts.join(' · ') : '';
     const hasShake = SHAKE_PAIRINGS[safeMeal.name];
     const shakeRating = hasShake ? (hasShake.rating === 'hit' ? '✅' : hasShake.rating === 'testing' ? '⏳' : '') : '';
     const mealHTML = `<div class="day-meal">
       <div style="flex:1">
         <div class="day-meal-name">${safeMeal.name}</div>
         ${sidesStr ? `<div class="day-meal-note" style="cursor:pointer;" onclick="event.stopPropagation();openSidesViewer(${day.mealIndex})">${sidesStr} 📖</div>` : ''}
+        ${dessertsStr ? `<div class="day-meal-note" style="cursor:pointer;" onclick="event.stopPropagation();openDessertsViewer(${day.mealIndex})">🍨 ${dessertsStr}</div>` : ''}
         ${day.isLeftover ? '<div class="day-meal-note">Uses leftover protein from previous night</div>' : ''}
       </div>
       <div class="day-actions">
@@ -3674,6 +3677,32 @@ function buildShoppingList() {
       });
     });
 
+    // Always process desserts via DESSERTS[name].ingredients
+    // Use customDesserts if the day has them (from composer), else meal defaults
+    const dayDesserts = day ? (day.customDesserts || meal.desserts || []) : (meal.desserts || []);
+    dayDesserts.forEach(dessertName => {
+      const dessertRecipe = DESSERTS[dessertName];
+      (dessertRecipe ? dessertRecipe.ingredients : []).forEach(ing => {
+        const ingStr = ing.name;
+        const ingQty = ing.qty != null ? ing.qty : null;
+        const ingUnit = ing.unit || '';
+        if (isExcludedName(ingStr, excludedItems)) return;
+        const key = ingredientDedupeKey(ingStr);
+        const existingDessertItem = added.has(key)
+          ? (shoppingItems.find(i => ingredientDedupeKey(i.name) === key && i.unit === ingUnit)
+            || shoppingItems.find(i => ingredientDedupeKey(i.name) === key))
+          : null;
+        if (!existingDessertItem) {
+          added.add(key);
+          shoppingItems.push({ name: ingStr, qty: ingQty, unit: ingUnit, section: itemSection(ingStr), checked: false, source: 'dessert' });
+        } else if (existingDessertItem.unit === ingUnit) {
+          if (existingDessertItem.qty != null && ingQty != null) existingDessertItem.qty += ingQty;
+        } else {
+          shoppingItems.push({ name: ingStr, qty: ingQty, unit: ingUnit, section: itemSection(ingStr), checked: false, source: 'dessert' });
+        }
+      });
+    });
+
     // Track shake ingredients for View qty (same ingredient across multiple shakes)
     const shakeViewQty = window._shakeViewQty = window._shakeViewQty || {};
 
@@ -4188,6 +4217,13 @@ function renderPantry() {
         usedIngredients.add(safeStr(ing).toLowerCase());
       });
     });
+    const desserts = day.customDesserts || meal.desserts || [];
+    desserts.forEach(dessertName => {
+      ((DESSERTS[dessertName] && DESSERTS[dessertName].ingredients) || []).forEach(ing => {
+        const n = safeStr(typeof ing === 'object' ? ing.name : ing);
+        if (n) usedIngredients.add(n.toLowerCase());
+      });
+    });
     const shake = SHAKE_PAIRINGS[meal.name];
     if (shake && shake.ingredients) {
       shake.ingredients.forEach(ing => {
@@ -4621,6 +4657,35 @@ function openIngredientSource(item) {
       });
     } else {
       html += '<div style="font-size:13px;color:var(--text2);">Side dish ingredient this week</div>';
+    }
+    html += '</div>';
+  } else if (source === 'dessert') {
+    // Find which meals THIS WEEK have a dessert that contains this ingredient
+    const sources = [];
+    weekPlan.forEach(day => {
+      if (day.isSunday || day.mealIndex < 0) return;
+      const meal = MEALS[day.mealIndex];
+      if (!meal) return;
+      const desserts = day.customDesserts || meal.desserts || [];
+      desserts.forEach(dessertName => {
+        const dessertIngs = (DESSERTS[dessertName] && DESSERTS[dessertName].ingredients) || [];
+        const found = dessertIngs.some(ing => namesLooselyMatch(item.name, ing.name));
+        if (found) {
+          const dayName = DAYS[day.date.getDay()];
+          sources.push({ meal: meal.name, dessert: dessertName, day: dayName });
+        }
+      });
+    });
+    html += '<div style="padding:12px 14px;"><div style="font-size:13px;font-weight:500;margin-bottom:8px;">Dessert ingredient</div>';
+    if (sources.length > 0) {
+      sources.forEach((s, i) => {
+        html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;' + (i > 0 ? 'border-top:0.5px solid var(--border);' : '') + '">'
+          + '<span style="font-size:14px;">🍨</span>'
+          + '<div><div style="font-size:13px;font-weight:500;">' + s.meal + '</div>'
+          + '<div style="font-size:11px;color:var(--text3);">Dessert: ' + s.dessert + ' · ' + s.day + '</div></div></div>';
+      });
+    } else {
+      html += '<div style="font-size:13px;color:var(--text2);">Dessert ingredient this week</div>';
     }
     html += '</div>';
   } else if (source === 'pantry') {
@@ -5197,12 +5262,12 @@ let composerState = {
   mainIdx: null,
   sides: new Set(),
   shake: null,
-  dessert: null,
+  desserts: new Set(),
   targetDayIdx: null, // which weekPlan slot to fill
 };
 
 function openComposer(dayIdx) {
-  composerState = { mainIdx: null, sides: new Set(), shake: null, dessert: null, targetDayIdx: dayIdx ?? null };
+  composerState = { mainIdx: null, sides: new Set(), shake: null, desserts: new Set(), targetDayIdx: dayIdx ?? null };
   renderComposerMain();
   renderComposerSides();
   renderComposerShake();
@@ -5223,12 +5288,14 @@ function renderComposerMain() {
     btn.innerHTML = '<div style="font-weight:500;">' + m.name + '</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">' + prepLabel + ' · ' + m.cost + '</div>';
     btn.onclick = () => {
       composerState.mainIdx = realIdx;
-      // Pre-populate default sides from the meal
+      // Pre-populate default sides/desserts from the meal
       composerState.sides = new Set(m.sides || []);
+      composerState.desserts = new Set(m.desserts || []);
       composerState.shake = SHAKE_PAIRINGS[m.name] || null;
       renderComposerMain();
       renderComposerSides();
       renderComposerShake();
+      renderComposerDessert();
       updateComposerPreview();
     };
     grid.appendChild(btn);
@@ -5281,19 +5348,17 @@ function renderComposerDessert() {
   const grid = document.getElementById('composer-dessert-grid');
   grid.innerHTML = '';
 
-  const noneBtn = document.createElement('button');
-  const noneSelected = composerState.dessert === null;
-  noneBtn.style.cssText = `padding:5px 12px;border-radius:20px;border:1px solid ${noneSelected?'var(--border-primary)':'var(--border)'};background:${noneSelected?'var(--surface)':'var(--surface2)'};font-family:inherit;font-size:12px;color:var(--text2);cursor:pointer;`;
-  noneBtn.textContent = 'No dessert';
-  noneBtn.onclick = () => { composerState.dessert = null; renderComposerDessert(); updateComposerPreview(); };
-  grid.appendChild(noneBtn);
-
   Object.keys(DESSERTS).forEach(name => {
-    const isSelected = composerState.dessert === name;
+    const isSelected = composerState.desserts.has(name);
     const btn = document.createElement('button');
     btn.style.cssText = `padding:5px 12px;border-radius:20px;border:1px solid ${isSelected?'var(--accent)':'var(--border)'};background:${isSelected?'var(--accent-light)':'var(--surface2)'};font-family:inherit;font-size:12px;color:${isSelected?'var(--accent)':'var(--text)'};cursor:pointer;`;
     btn.textContent = name;
-    btn.onclick = () => { composerState.dessert = name; renderComposerDessert(); updateComposerPreview(); };
+    btn.onclick = () => {
+      if (composerState.desserts.has(name)) composerState.desserts.delete(name);
+      else composerState.desserts.add(name);
+      renderComposerDessert();
+      updateComposerPreview();
+    };
     grid.appendChild(btn);
   });
 }
@@ -5307,11 +5372,11 @@ function updateComposerPreview() {
   const meal = MEALS[composerState.mainIdx];
   const sides = [...composerState.sides];
   const shake = composerState.shake ? composerState.shake.name : 'No shake';
-  const dessert = composerState.dessert || 'No dessert';
+  const desserts = [...composerState.desserts];
   el.innerHTML = `<div style="font-weight:500;font-size:14px;color:var(--text);margin-bottom:6px;">${meal.name}</div>
     <div style="color:var(--text2);">Sides: ${sides.length > 0 ? sides.join(', ') : 'none'}</div>
     <div style="color:var(--text2);">Shake: ${shake}</div>
-    <div style="color:var(--text2);">Dessert: ${dessert}</div>`;
+    <div style="color:var(--text2);">Dessert: ${desserts.length > 0 ? desserts.join(', ') : 'none'}</div>`;
 }
 
 function saveComposedMeal() {
@@ -5328,7 +5393,7 @@ function saveComposedMeal() {
   if (composerState.targetDayIdx !== null) {
     weekPlan[composerState.targetDayIdx].mealIndex = composerState.mainIdx;
     weekPlan[composerState.targetDayIdx].customSides = [...composerState.sides];
-    weekPlan[composerState.targetDayIdx].customDessert = composerState.dessert;
+    weekPlan[composerState.targetDayIdx].customDesserts = [...composerState.desserts];
     weekPlan[composerState.targetDayIdx].isSunday = false;
     weekPlan[composerState.targetDayIdx].isLeftover = false;
     renderWeek();
@@ -5369,7 +5434,7 @@ function openComposerDayPicker() {
     btn.onclick = () => {
       weekPlan[wi].mealIndex = composerState.mainIdx;
       weekPlan[wi].customSides = [...composerState.sides];
-      weekPlan[wi].customDessert = composerState.dessert;
+      weekPlan[wi].customDesserts = [...composerState.desserts];
       weekPlan[wi].isSunday = false;
       weekPlan[wi].isLeftover = false;
       renderWeek();
@@ -5435,6 +5500,59 @@ function openSidesViewer(mealIndex) {
     editBtn.style.cssText = 'background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--text2);cursor:pointer;';
     editBtn.textContent = '✏️ Edit';
     editBtn.onclick = () => { closeModal('recipe-modal'); openRecipeAdmin(document.getElementById('recipe-title').textContent, 'side'); };
+    editBtnContainer.appendChild(editBtn);
+  }
+  document.getElementById('recipe-modal').classList.add('open');
+}
+
+function openDessertsViewer(mealIndex) {
+  const meal = MEALS[mealIndex];
+  // Check if this day has custom desserts from the composer
+  const day = weekPlan.find(d => !d.isSunday && d.mealIndex === mealIndex);
+  const desserts = (day && day.customDesserts) ? day.customDesserts : (meal.desserts || []);
+  if (desserts.length === 0) return;
+
+  document.getElementById('recipe-title').textContent = 'Desserts for ' + meal.name;
+  document.getElementById('recipe-badges').innerHTML = '';
+
+  let html = '';
+  desserts.forEach(name => {
+    const recipe = DESSERTS[name];
+    html += `<div style="margin-bottom:16px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;">
+      <div style="padding:10px 12px;background:var(--surface2);font-weight:500;font-size:14px;">${name}</div>`;
+
+    if (!recipe) {
+      html += `<div class="no-recipe" style="margin:0;border-radius:0;">No recipe linked yet</div>`;
+    } else {
+      html += `<div style="padding:10px 12px;">`;
+      html += `<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text2);margin-bottom:6px;">Ingredients</div>`;
+      (recipe.ingredients || []).forEach(ing => {
+        const qtyStr = ing.qty != null ? ing.qty + (ing.unit ? ' ' + ing.unit + ' ' : ' ') : '';
+        html += `<div class="ingredient-item"><div class="ingredient-dot"></div><span>${qtyStr}${ing.name}</span></div>`;
+      });
+      html += `<div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text2);margin:10px 0 6px;">Instructions</div>`;
+      (recipe.steps || []).forEach((step, i) => {
+        html += `<div class="step-item"><div class="step-num">${i+1}</div><span>${step}</span></div>`;
+      });
+      if (recipe.notes) {
+        html += `<div style="margin-top:10px;font-size:12px;color:var(--text3);font-style:italic;">${recipe.notes}</div>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+  });
+
+  document.getElementById('recipe-content').innerHTML = html;
+  // Hide serving scaler for desserts viewer
+  document.querySelector('.scaler-row').style.display = 'none';
+  // Add edit button to recipe modal header
+  const editBtnContainer = document.getElementById('recipe-edit-btn-container');
+  if (editBtnContainer) {
+    editBtnContainer.innerHTML = '';
+    const editBtn = document.createElement('button');
+    editBtn.style.cssText = 'background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--text2);cursor:pointer;';
+    editBtn.textContent = '✏️ Edit';
+    editBtn.onclick = () => { closeModal('recipe-modal'); openRecipeAdmin(null, 'dessert'); };
     editBtnContainer.appendChild(editBtn);
   }
   document.getElementById('recipe-modal').classList.add('open');
@@ -5685,11 +5803,13 @@ function loadRAExisting() {
   // Load notes
   document.getElementById('ra-notes').value = recipe.notes || '';
 
-  // Load sides & shake pairing (main/breakfast/lunch only)
+  // Load sides, desserts & shake pairing (main/breakfast/lunch only)
   if (['main','breakfast','lunch'].includes(raCategory)) {
     const meal = MEALS.find(m => m.name === name);
     raSides = new Set(meal ? (meal.sides || []) : []);
     renderRASidesGrid();
+    raDesserts = new Set(meal ? (meal.desserts || []) : []);
+    renderRADessertsGrid();
     renderRAShakeSummary(name);
   }
 
@@ -5711,6 +5831,8 @@ function clearRAForm() {
   document.getElementById('ra-status').textContent = '';
   raSides = new Set();
   renderRASidesGrid();
+  raDesserts = new Set();
+  renderRADessertsGrid();
   renderRAShakeSummary(null);
   const warnEl = document.getElementById('ra-mismatch-warning');
   if (warnEl) warnEl.innerHTML = '';
@@ -5777,6 +5899,59 @@ function renderRASidesGrid() {
 
 function openSideAdminFor(sideName) {
   openRecipeAdmin(sideName, 'side');
+}
+
+// ── RECIPE ADMIN: DESSERTS (main/breakfast/lunch) ─────────────────────────────
+let raDesserts = new Set();
+
+function raDessertsHas(canonicalDessert) {
+  const target = canonicalDessert.trim().toLowerCase();
+  for (const d of raDesserts) {
+    if (String(d).trim().toLowerCase() === target) return true;
+  }
+  return false;
+}
+function raDessertsToggle(canonicalDessert) {
+  const target = canonicalDessert.trim().toLowerCase();
+  const existing = [...raDesserts].find(d => String(d).trim().toLowerCase() === target);
+  if (existing) raDesserts.delete(existing);
+  else raDesserts.add(canonicalDessert);
+}
+
+function renderRADessertsGrid() {
+  const grid = document.getElementById('ra-desserts-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  Object.keys(DESSERTS).forEach(name => {
+    const isSelected = raDessertsHas(name);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.style.cssText = `padding:6px 12px;border-radius:20px;border:1px solid ${isSelected?'var(--accent2)':'var(--border)'};background:${isSelected?'var(--accent2-light)':'var(--surface2)'};font-family:inherit;font-size:12px;color:${isSelected?'var(--accent2)':'var(--text2)'};cursor:pointer;`;
+    btn.textContent = name;
+    btn.onclick = () => {
+      raDessertsToggle(name);
+      renderRADessertsGrid();
+    };
+    grid.appendChild(btn);
+  });
+
+  const editLinks = document.getElementById('ra-desserts-edit-links');
+  if (editLinks) {
+    editLinks.innerHTML = '';
+    [...raDesserts].forEach(rawDessert => {
+      const canonical = Object.keys(DESSERTS).find(d => d.toLowerCase() === String(rawDessert).trim().toLowerCase()) || rawDessert;
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.style.cssText = 'background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;padding:0;';
+      link.textContent = '✏️ Edit ' + canonical;
+      link.onclick = () => openDessertAdminFor(canonical);
+      editLinks.appendChild(link);
+    });
+  }
+}
+
+function openDessertAdminFor(dessertName) {
+  openRecipeAdmin(dessertName, 'dessert');
 }
 
 function renderRAShakeSummary(mealName) {
@@ -5987,6 +6162,7 @@ function saveRARecipe() {
         mealType: raCategory,
         tier: recipe.tier,
         sides: [...raSides],
+        desserts: [...raDesserts],
         shake: 'auto',
         isLeftover: false,
       });
@@ -5994,6 +6170,7 @@ function saveRARecipe() {
       existingMeal.prep = prep;
       existingMeal.cost = cost;
       existingMeal.sides = [...raSides];
+      existingMeal.desserts = [...raDesserts];
       // Flags this coded meal for the lightweight codedMealEdits save path
       // (see saveState()) so the edit actually survives a reload.
       if (existingMeal._coded) existingMeal._edited = true;
@@ -6071,6 +6248,14 @@ function migrateOldMealNames() {
     if (SHAKE_PAIRINGS[oldName]) {
       SHAKE_PAIRINGS[newName] = SHAKE_PAIRINGS[newName] || SHAKE_PAIRINGS[oldName];
       delete SHAKE_PAIRINGS[oldName];
+    }
+  });
+  // Migrate old single-select `customDessert` (string|null) weekPlan entries
+  // to the new multi-select `customDesserts` (array) shape.
+  weekPlan.forEach(day => {
+    if (day.customDessert !== undefined) {
+      if (!day.customDesserts) day.customDesserts = day.customDessert ? [day.customDessert] : [];
+      delete day.customDessert;
     }
   });
 }
@@ -6419,7 +6604,7 @@ renderHistory();
     <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:8px;">Shake Pairing</div>
     <div id="composer-shake-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:16px;"></div>
 
-    <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:8px;">Dessert <span style="font-weight:400;color:var(--text3);">(optional)</span></div>
+    <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:8px;">Dessert <span style="font-weight:400;color:var(--text3);">(tap to add/remove)</span></div>
     <div id="composer-dessert-grid" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;"></div>
 
     <div style="height:0.5px;background:var(--border);margin:8px 0 12px;"></div>
@@ -6494,6 +6679,11 @@ renderHistory();
         <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:6px;">Sides</div>
         <div id="ra-sides-grid" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
         <div id="ra-sides-edit-links" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:10px;"></div>
+      </div>
+      <div style="margin-top:12px;">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:6px;">Desserts</div>
+        <div id="ra-desserts-grid" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        <div id="ra-desserts-edit-links" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:10px;"></div>
       </div>
       <div style="margin-top:12px;">
         <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text2);margin-bottom:6px;">Shake Pairing</div>
