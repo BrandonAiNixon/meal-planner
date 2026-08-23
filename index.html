@@ -439,6 +439,10 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
 </div>
 
 <script>
+// Bumped on every code change so Settings can show which build actually
+// loaded — the only way to tell a fresh deploy from a stale cached copy.
+const APP_VERSION = '2026.08.23.1';
+
 // ── DATA ──────────────────────────────────────────────────────────────────────
 
 const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -4767,6 +4771,7 @@ function openAdmin() {
   renderAdminExcluded();
   updateAdminCounts();
   populateAdminRecipeSelect();
+  document.getElementById('app-version-value').textContent = APP_VERSION;
   document.getElementById('admin-overlay').style.display = 'block';
 }
 
@@ -6551,7 +6556,10 @@ renderHistory();
 <div id="admin-overlay" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:300;overflow-y:auto;">
   <div style="max-width:480px;margin:0 auto;padding:0 16px 48px;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border);margin-bottom:16px;position:sticky;top:0;background:var(--bg);z-index:1;">
-      <h2 style="font-size:20px;">⚙️ Settings</h2>
+      <div>
+        <h2 style="font-size:20px;">⚙️ Settings</h2>
+        <div id="app-version-label" style="font-size:11px;color:var(--text3);">v<span id="app-version-value"></span></div>
+      </div>
       <button onclick="closeAdmin()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--text2);">✕</button>
     </div>
 
