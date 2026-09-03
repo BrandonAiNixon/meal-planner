@@ -441,7 +441,7 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
 <script>
 // Bumped on every code change so Settings can show which build actually
 // loaded — the only way to tell a fresh deploy from a stale cached copy.
-const APP_VERSION = '2026.08.23.7';
+const APP_VERSION = '2026.09.03.1';
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
 
@@ -1388,10 +1388,10 @@ const DEFAULT_STORE_SECTIONS = [
   { id:'healthy', name:'Healthy Living', type:'section' },
   { id:'bakery', name:'Bakery', type:'section' },
   { id:'floral', name:'Floral', type:'section' },
-  { id:'s19', name:'Frozen Aisle 19', type:'aisle', num:19 },
-  { id:'s18', name:'Frozen Aisle 18', type:'aisle', num:18 },
-  { id:'s17', name:'Frozen Aisle 17', type:'aisle', num:17 },
   { id:'s16', name:'Frozen Aisle 16', type:'aisle', num:16 },
+  { id:'s17', name:'Frozen Aisle 17', type:'aisle', num:17 },
+  { id:'s18', name:'Frozen Aisle 18', type:'aisle', num:18 },
+  { id:'s19', name:'Frozen Aisle 19', type:'aisle', num:19 },
   { id:'unassigned', name:'Needs Aisle', type:'unassigned' },
   { id:'excluded', name:'Excluded', type:'excluded' },
 ];
@@ -2114,7 +2114,6 @@ function cycleStaple(item) {
   const current = pantryState[item] || 'unknown';
   const next = current === 'unknown' ? 'stocked' : current === 'stocked' ? 'low' : 'unknown';
   pantryState[item] = next;
-  saveState();
 
   if (next === 'low') {
     // Add to shopping list without rebuilding — preserves all checked/cart state
@@ -2141,6 +2140,11 @@ function cycleStaple(item) {
     });
     renderShoppingList();
   }
+  // Save once shoppingItems reflects the change. Saving before this point
+  // persisted pantryState's "low" without the newly pushed/removed shopping-list
+  // entry — if the app was closed right after marking an item low, it stayed
+  // "low" in the pantry but never made it onto the saved shopping list.
+  saveState();
   renderPantry();
 }
 
