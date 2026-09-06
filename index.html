@@ -326,7 +326,7 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
   <p class="shop-meta" id="shop-meta">North Woodlands Market · <span id="item-count">0</span> items</p>
 
   <div class="add-item-row" style="flex-wrap:wrap;gap:6px;">
-    <input class="add-input" id="add-input" placeholder="Item name (e.g. Heavy cream)" onkeydown="if(event.key==='Enter')addManualItem()" style="flex:2;min-width:120px;">
+    <input class="add-input" id="add-input" list="ingredient-datalist" placeholder="Item name (e.g. Heavy cream)" onkeydown="if(event.key==='Enter')addManualItem()" style="flex:2;min-width:120px;">
     <input class="add-input" id="add-qty" type="number" min="0" step="0.5" placeholder="Qty" style="flex:0.4;min-width:52px;max-width:64px;">
     <input class="add-input" id="add-unit" placeholder="Unit" onkeydown="if(event.key==='Enter')addManualItem()" style="flex:0.6;min-width:60px;max-width:80px;">
     <button class="btn-add" onclick="addManualItem()">+ Add</button>
@@ -356,7 +356,7 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
   <p style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--blue);margin-bottom:8px;">Always in House</p>
   <p style="font-size:13px;color:var(--text2);margin-bottom:10px;line-height:1.5;">Items you always keep at home. Never added to your shopping list unless you mark them Low. Tap 🏠 on any shopping list item to add it here. Tap ✕ to remove it and return it to the regular shopping list.</p>
   <div class="add-item-row" style="margin-bottom:10px;">
-    <input class="add-input" id="pantry-add-input" placeholder="Add item (e.g. Coconut water)" onkeydown="if(event.key==='Enter')addPantryStaple()">
+    <input class="add-input" id="pantry-add-input" list="ingredient-datalist" placeholder="Add item (e.g. Coconut water)" onkeydown="if(event.key==='Enter')addPantryStaple()">
     <button class="btn-add" onclick="addPantryStaple()">+ Add</button>
   </div>
   <div style="position:relative;margin-bottom:10px;">
@@ -441,7 +441,7 @@ h1,h2,h3 { font-family: 'Playfair Display', serif; }
 <script>
 // Bumped on every code change so Settings can show which build actually
 // loaded — the only way to tell a fresh deploy from a stale cached copy.
-const APP_VERSION = '2026.09.03.1';
+const APP_VERSION = '2026.09.06.1';
 
 // ── DATA ──────────────────────────────────────────────────────────────────────
 
@@ -3602,6 +3602,97 @@ function isExcludedName(name, excludeSet) {
   });
 }
 
+// Every ingredient name currently known to the app, pulled from pantry
+// staples, recipe/side/dessert ingredients, and shake pairings — the single
+// source recipes, pantry, and the shopping list all draw from. Deduped by
+// core word set (via coreIngredientWords/namesLooselyMatch) so "Ground beef"
+// and "ground beef, lean" collapse to one entry; first-seen casing wins.
+// Powers the ingredient-name datalist (see refreshIngredientDatalist) and
+// the snap-to-canonical-name matching used when adding pantry items,
+// shopping-list items, or recipe ingredients, so typing a near-match offers
+// the existing name instead of quietly forking a duplicate.
+function getCanonicalIngredientNames() {
+  const names = [];
+  const seenKeys = new Set();
+  function addName(n) {
+    const s = safeStr(n).trim();
+    if (!s) return;
+    const key = coreIngredientWords(s).join(' ');
+    if (!key || seenKeys.has(key)) return;
+    seenKeys.add(key);
+    names.push(s);
+  }
+  pantryStaples.forEach(addName);
+  Object.values(STRUCTURED_MEALS).forEach(m => (m.ingredients || []).forEach(ing => addName(ing.name)));
+  Object.values(SIDE_INGREDIENTS).forEach(list => (list || []).forEach(ing => addName(typeof ing === 'object' && ing !== null ? ing.name : ing)));
+  Object.values(DESSERTS).forEach(d => (d.ingredients || []).forEach(ing => addName(ing.name)));
+  // Legacy free-text shake ingredients embed qty/prep wording ("1 scoop
+  // protein powder") that isn't a clean ingredient name — only structured
+  // {name} entries (from Recipe Admin) are usable here.
+  Object.values(SHAKE_PAIRINGS).forEach(sp => (sp.ingredients || []).forEach(ing => {
+    if (typeof ing === 'object' && ing !== null && ing.name) addName(ing.name);
+  }));
+  names.sort((a, b) => a.localeCompare(b));
+  return names;
+}
+
+// Finds an existing canonical ingredient name that loosely matches `name`
+// (same core words, tolerant of casing/pluralization/prep-word wording) —
+// used to snap a freshly-typed name onto the one already in the database
+// instead of letting a near-duplicate slip in.
+function findCanonicalIngredientMatch(name) {
+  const val = safeStr(name).trim();
+  if (!val) return null;
+  return getCanonicalIngredientNames().find(n => namesLooselyMatch(val, n)) || null;
+}
+
+// Refreshes the shared <datalist> that backs autocomplete on the pantry,
+// shopping-list manual-add, and Recipe Admin ingredient-name inputs, so
+// typing a few letters of an existing ingredient offers it instead of
+// inviting a re-typed duplicate.
+function refreshIngredientDatalist() {
+  let dl = document.getElementById('ingredient-datalist');
+  if (!dl) {
+    dl = document.createElement('datalist');
+    dl.id = 'ingredient-datalist';
+    document.body.appendChild(dl);
+  }
+  dl.innerHTML = getCanonicalIngredientNames()
+    .map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`)
+    .join('');
+}
+
+// Merges an ingredient into `shoppingItems` by its dedupe key, no matter
+// whether an earlier meal specified a different unit for the same
+// ingredient (e.g. "chicken broth" in cups for one meal, cans for another).
+// A previous version forked a brand-new duplicate row whenever units
+// disagreed. That was more than clutter: the checked-state preservation
+// below keys purely on normalized name, so once two rows shared a name,
+// checking off one of them at the store meant the NEXT rebuild silently
+// re-checked every row with that name — including ones the user never
+// touched — and they vanished from the list without ever being bought
+// (2026-09-06 chicken broth report). Extra sources are tracked via
+// viewQtySources and surfaced through the "View qty" button instead —
+// never as a second row for the same ingredient.
+function mergeOrAddShoppingItem(added, name, qty, unit, section, source, mealLabel, extra) {
+  const key = ingredientDedupeKey(name);
+  const existing = added.has(key) ? shoppingItems.find(i => ingredientDedupeKey(i.name) === key) : null;
+  if (!existing) {
+    added.add(key);
+    shoppingItems.push(Object.assign({
+      name: safeStr(name), qty, unit, section, checked: false, source, buyQty: 1,
+      viewQtySources: [{ meal: mealLabel, qty, unit }],
+    }, extra));
+    return;
+  }
+  existing.viewQtySources = existing.viewQtySources || [];
+  existing.viewQtySources.push({ meal: mealLabel, qty, unit });
+  existing.viewQty = existing.viewQtySources.length > 1;
+  if (existing.unit === unit && existing.qty != null && qty != null) {
+    existing.qty += qty;
+  }
+}
+
 function buildShoppingList() {
   // Preserve manually added items across rebuilds
   const manualItems = shoppingItems.filter(i => i.source === 'manual');
@@ -3650,25 +3741,8 @@ function buildShoppingList() {
 
       // Normalize ingredient name for deduplication
       // e.g. "Large flour tortillas" and "Flour tortillas" → same key
-      const key = ingredientDedupeKey(ing.name);
-      // Same dedupe key can still be a genuinely different purchase — e.g. a
-      // shake's "frozen cucumber chunks" (cup) vs this meal's fresh "Cucumber"
-      // (whole). Only fold into an existing entry when the unit also matches;
-      // otherwise list it separately instead of silently dropping it.
-      const existing = added.has(key)
-        ? (shoppingItems.find(i => ingredientDedupeKey(i.name) === key && i.unit === ing.unit)
-          || shoppingItems.find(i => ingredientDedupeKey(i.name) === key))
-        : null;
-      if (!existing) {
-        added.add(key);
-        const section = ing.section || itemSection(ing.name);
-        shoppingItems.push({ name: safeStr(ing.name), qty: ing.qty, unit: ing.unit, section, checked: false, source: 'meal', buyQty: 1 });
-      } else if (existing.unit === ing.unit) {
-        if (existing.qty != null && ing.qty != null) existing.qty += ing.qty;
-      } else {
-        const section = ing.section || itemSection(ing.name);
-        shoppingItems.push({ name: safeStr(ing.name), qty: ing.qty, unit: ing.unit, section, checked: false, source: 'meal', buyQty: 1 });
-      }
+      const section = ing.section || itemSection(ing.name);
+      mergeOrAddShoppingItem(added, ing.name, ing.qty, ing.unit, section, 'meal', meal.name);
     });
 
     // Always process sides via SIDE_INGREDIENTS
@@ -3702,24 +3776,9 @@ function buildShoppingList() {
         const ingQty = ing.qty != null ? ing.qty : null;
         const ingUnit = ing.unit || '';
         if (isExcludedName(ingStr, excludedItems)) return;
-        const key = ingredientDedupeKey(ingStr);
-        const existingDessertItem = added.has(key)
-          ? (shoppingItems.find(i => ingredientDedupeKey(i.name) === key && i.unit === ingUnit)
-            || shoppingItems.find(i => ingredientDedupeKey(i.name) === key))
-          : null;
-        if (!existingDessertItem) {
-          added.add(key);
-          shoppingItems.push({ name: ingStr, qty: ingQty, unit: ingUnit, section: itemSection(ingStr), checked: false, source: 'dessert', buyQty: 1 });
-        } else if (existingDessertItem.unit === ingUnit) {
-          if (existingDessertItem.qty != null && ingQty != null) existingDessertItem.qty += ingQty;
-        } else {
-          shoppingItems.push({ name: ingStr, qty: ingQty, unit: ingUnit, section: itemSection(ingStr), checked: false, source: 'dessert', buyQty: 1 });
-        }
+        mergeOrAddShoppingItem(added, ingStr, ingQty, ingUnit, itemSection(ingStr), 'dessert', meal.name);
       });
     });
-
-    // Track shake ingredients for View qty (same ingredient across multiple shakes)
-    const shakeViewQty = window._shakeViewQty = window._shakeViewQty || {};
 
     // Add shake ingredients for both confirmed (hit) and testing shakes
     const shakePairing = SHAKE_PAIRINGS[meal.name];
@@ -3746,56 +3805,13 @@ function buildShoppingList() {
         if (!ingName) return;
 
         // Skip excluded and pantry staple items
-        const nameLower = ingName.toLowerCase();
         if (isExcludedName(ingName, excludedItems)) return;
         const ingSection = itemSection(ingName);
         if (ingSection === 'Pantry Staple' || ingSection === 'Excluded') return;
 
-        // Deduplicate by core noun — shares the same key namespace as meal/side
-        // ingredients so e.g. "whole milk" (shake) and "Milk" (side) merge into one item.
-        const coreKey = ingredientDedupeKey(ingName);
-        const dedupeKey = coreKey;
-        // Track for View qty — use coreKey so variants map to same entry
-        const vqKey = 'shake_vq:' + coreKey;
-        if (!viewQtyMap[vqKey]) viewQtyMap[vqKey] = { section: ingSection, sources: [], displayName: ingName };
-        viewQtyMap[vqKey].sources.push({ meal: meal.name + ' shake', qty: ingQty, unit: ingUnit });
-
-        // Same guard as the meal-ingredient loop above: a shared dedupe key
-        // doesn't guarantee the same purchasable form (e.g. this shake's
-        // "frozen cucumber chunks" vs a meal's fresh whole "Cucumber"), so
-        // only fold in when the unit also matches — otherwise list separately.
-        const existingForShake = added.has(dedupeKey)
-          ? (shoppingItems.find(i => ingredientDedupeKey(i.name) === dedupeKey && i.unit === ingUnit)
-            || shoppingItems.find(i => ingredientDedupeKey(i.name) === dedupeKey))
-          : null;
-        if (!existingForShake) {
-          added.add(dedupeKey);
-          shoppingItems.push({
-            name: ingName,
-            qty: ingQty,
-            unit: ingUnit,
-            section: ingSection,
-            checked: false,
-            source: 'shake',
-            shakeFor: meal.name,
-            vqKey: vqKey,
-            buyQty: 1,
-          });
-        } else if (existingForShake.unit === ingUnit) {
-          if (existingForShake.qty != null && ingQty != null) existingForShake.qty += ingQty;
-        } else {
-          shoppingItems.push({
-            name: ingName,
-            qty: ingQty,
-            unit: ingUnit,
-            section: ingSection,
-            checked: false,
-            source: 'shake',
-            shakeFor: meal.name,
-            vqKey: vqKey,
-            buyQty: 1,
-          });
-        }
+        // Shares the same dedupe-key namespace as meal/side ingredients so
+        // e.g. "whole milk" (shake) and "Milk" (side) merge into one item.
+        mergeOrAddShoppingItem(added, ingName, ingQty, ingUnit, ingSection, 'shake', meal.name + ' shake', { shakeFor: meal.name });
       });
     }
   });
@@ -3826,24 +3842,26 @@ function buildShoppingList() {
     shoppingItems.push(item);
   });
 
-  // Add View qty items — always add, even if key was seen before
+  // Add "viewqty"-type ingredients (e.g. ribeye steaks bought by feel across
+  // multiple meals). This used to look for an already-listed row with a
+  // case-insensitive-alnum-only key (`ik`) against the RAW, un-lowercased
+  // `key` — a mismatch that meant the lookup almost never matched, so a
+  // "viewqty" ingredient sharing a name with a regular 'simple' ingredient
+  // (e.g. a recipe's "Chicken broth" tracked as viewqty alongside another
+  // recipe's plain "Chicken broth") silently got its own second row. Same
+  // failure mode as the unit-mismatch bug above: the checked-state
+  // preservation keys on name alone, so checking off one of the two
+  // identically-named rows got the other one silently checked-and-hidden on
+  // the next rebuild. Now uses the same ingredientDedupeKey as everywhere
+  // else and always merges into an existing row rather than forking one.
   Object.entries(viewQtyMap).forEach(([vqKey, data]) => {
-    const displayName = data.displayName || vqKey.replace('shake_vq:', '');
-    const key = vqKey.replace('shake_vq:', '');
-    const shakeKey = 'shake:' + key;
-    // Check if already in shopping list
-    const existing = shoppingItems.find(i => {
-      const ik = safeStr(i.name).toLowerCase().replace(/[^a-z]/g,'');
-      return ik === key || ik.includes(key) || key.includes(ik);
-    });
+    const displayName = data.displayName || vqKey;
+    const key = ingredientDedupeKey(displayName);
+    const existing = shoppingItems.find(i => ingredientDedupeKey(i.name) === key);
     if (existing) {
-      // Attach viewQty to existing item if multiple sources
-      if (data.sources.length > 1) {
-        existing.viewQty = true;
-        existing.viewQtySources = data.sources;
-      }
+      existing.viewQtySources = (existing.viewQtySources || []).concat(data.sources);
+      existing.viewQty = existing.viewQtySources.length > 1;
     } else {
-      // Add to list — viewqty items (like ribeye steaks) ALWAYS get added
       added.add(key);
       shoppingItems.push({
         name: displayName,
@@ -3852,7 +3870,7 @@ function buildShoppingList() {
         checked: false,
         source: 'meal',
         viewQty: data.sources.length > 1,
-        viewQtySources: data.sources.length > 1 ? data.sources : null,
+        viewQtySources: data.sources,
         note: data.sources[0] && data.sources[0].note ? data.sources[0].note : null,
         buyQty: 1,
       });
@@ -3886,6 +3904,7 @@ function buildShoppingList() {
 }
 
 function renderShoppingList() {
+  refreshIngredientDatalist();
   const container = document.getElementById('shop-sections');
   container.innerHTML = '';
 
@@ -3978,11 +3997,12 @@ function renderShoppingList() {
       const el = document.createElement('div');
       el.className = 'shop-item';
       const isUnknown = item.section === 'Needs Aisle';
-      // Don't show qty for shake ingredients (recipe measurements) or View qty items
-      const qtyStr = (item.qty != null && !item.viewQty && item.source !== 'shake') ? ` × ${item.qty}${item.unit ? ' ' + item.unit : ''}` : '';
+      // Quantity is intentionally not shown inline — it varies by recipe/meal
+      // and cluttered the list (e.g. "Ground beef × 1 lb"). Use "View qty" for
+      // a per-meal breakdown when an ingredient has more than one source.
       const nameEl = document.createElement('div');
       nameEl.style.cssText = 'flex:1;';
-      nameEl.innerHTML = `<span class="shop-item-name">${item.name}${qtyStr}</span>`;
+      nameEl.innerHTML = `<span class="shop-item-name">${item.name}</span>`;
       const checkEl = document.createElement('div');
       checkEl.className = 'check-circle';
       checkEl.innerHTML = '<span class="check-icon">✓</span>';
@@ -4142,8 +4162,11 @@ function addManualItem() {
   const input = document.getElementById('add-input');
   const qtyInput = document.getElementById('add-qty');
   const unitInput = document.getElementById('add-unit');
-  const val = input.value.trim();
+  let val = input.value.trim();
   if (!val) return;
+  // Snap to an existing ingredient name (e.g. typed "ground beef" matches
+  // the canonical "Ground Beef") so this doesn't fork a near-duplicate.
+  val = findCanonicalIngredientMatch(val) || val;
   const qty = qtyInput && qtyInput.value ? parseFloat(qtyInput.value) : null;
   const unit = unitInput && unitInput.value.trim() ? unitInput.value.trim() : '';
   const section = itemSection(val);
@@ -4170,8 +4193,12 @@ function toggleCompleted() {
 // ── PANTRY ────────────────────────────────────────────────────────────────────
 function addPantryStaple() {
   const input = document.getElementById('pantry-add-input');
-  const val = input ? input.value.trim() : '';
+  let val = input ? input.value.trim() : '';
   if (!val) return;
+  // Snap to an existing ingredient name before the exact-match staple check,
+  // so e.g. "Ground Beef" typed here lines up with "ground beef" already
+  // used in a recipe instead of tracking two separate pantry entries.
+  val = findCanonicalIngredientMatch(val) || val;
   const key = findPantryStapleMatch(val) || val;
   pantryStaples.add(key);
   pantryState[key] = 'stocked';
@@ -4259,6 +4286,7 @@ function clearPantrySearch() {
 }
 
 function renderPantry() {
+  refreshIngredientDatalist();
   // ── Build set of pantry staples used this week ──────────────────────────
   const usedIngredients = new Set();
   weekPlan.forEach(day => {
@@ -5678,6 +5706,7 @@ let raCategory = 'main';
 let raEditingName = null; // null = new recipe, string = editing existing
 
 function openRecipeAdmin(prefillName, prefillCategory) {
+  refreshIngredientDatalist();
   raCategory = prefillCategory || 'main';
   raEditingName = null;
 
@@ -6159,7 +6188,7 @@ function addRAIngredientRow(qty, unit, name) {
   row.innerHTML = `
     <input type="number" min="0" step="0.25" placeholder="Qty" value="${qty}" style="width:60px;">
     <input type="text" placeholder="Unit" value="${unit}" style="width:70px;">
-    <input type="text" placeholder="Ingredient name" value="${name}" style="flex:1;">
+    <input type="text" list="ingredient-datalist" placeholder="Ingredient name" value="${name}" style="flex:1;">
     <button class="ra-remove-btn" onclick="this.closest('.ra-ing-row').remove()">✕</button>`;
   list.appendChild(row);
   row.querySelector('input:last-of-type').focus();
@@ -6259,7 +6288,11 @@ function saveRARecipe() {
     const inputs = row.querySelectorAll('input');
     const qty = parseFloat(inputs[0].value) || null;
     const unit = inputs[1].value.trim();
-    const ingName = inputs[2].value.trim();
+    // Snap to an existing ingredient name so a recipe typed with slightly
+    // different wording ("Ground Beef" vs "ground beef") reuses the same
+    // canonical ingredient instead of forking a new one the pantry and
+    // shopping list won't recognize as the same item.
+    const ingName = findCanonicalIngredientMatch(inputs[2].value.trim()) || inputs[2].value.trim();
     if (ingName) ingredients.push({ qty, unit, name: ingName });
   });
 
